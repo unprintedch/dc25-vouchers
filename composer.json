@@ -1,0 +1,14 @@
+{
+    "name": "unprinted/dc25-vouchers",
+    "description": "Bons cadeaux WooCommerce avec PDF, QR et validation publique.",
+    "type": "wordpress-plugin",
+    "require": {
+      "dompdf/dompdf": "^2.0",
+      "endroid/qr-code": "^5.0"
+    },
+    "autoload": {
+      "psr-4": {
+        "DC25\\": "includes/"
+      }
+    }
+  }
