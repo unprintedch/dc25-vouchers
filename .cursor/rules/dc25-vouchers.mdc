@@ -1,0 +1,59 @@
+# DC25 Vouchers - Plugin WooCommerce
+
+## Contexte du projet
+Plugin WordPress/WooCommerce pour la vente de bons cadeaux avec prix libre (20-200 CHF).
+
+## Stack technique
+- PHP 8.0+
+- WordPress 6.0+
+- WooCommerce 8.0+
+- DOMPDF (génération PDF)
+- chillerlan/php-qrcode (QR codes)
+- Vanilla JavaScript (pas de jQuery côté frontend)
+
+## Structure du plugin
+- `dc25-vouchers.php` : Fichier principal, initialisation
+- `includes/` : Classes PHP du plugin
+  - `class-dc25-gift-product-type.php` : Type de produit personnalisé
+  - `class-dc25-single-product-fields.php` : Champs sur la page produit
+  - `class-dc25-order-handler.php` : Génération automatique des coupons/PDF
+  - `class-dc25-coupon-service.php` : Service de gestion des coupons
+  - `class-dc25-pdf-service.php` : Service de génération PDF
+  - `class-dc25-qr-service.php` : Service de génération QR codes
+  - `class-dc25-verify-endpoint.php` : Endpoint public de vérification
+  - `class-dc25-vouchers-admin.php` : Interface d'administration
+  - `class-dc25-settings.php` : Paramètres du plugin
+- `assets/js/` : Scripts JavaScript (vanilla JS)
+- `assets/css/` : Styles CSS
+- `templates/` : Templates PHP (PDF, etc.)
+
+## Conventions de code
+- **PHP** : Strict typing (`declare(strict_types=1);`)
+- **WordPress** : Suivre les standards WordPress
+- **WooCommerce** : Utiliser les hooks et APIs officielles
+- **Noms de classes** : Préfixe `DC25_`
+- **Noms de fonctions** : Préfixe `dc25_`
+- **Text Domain** : `dc25-vouchers`
+- **Internationalisation** : FR/DE/EN supportées
+
+## Hooks WooCommerce importants
+- `woocommerce_order_status_completed` : Génération après paiement
+- `woocommerce_order_status_processing` : Génération après paiement
+- `woocommerce_payment_complete` : Génération après paiement
+- `woocommerce_order_status_changed` : Détection changement de statut
+- `woocommerce_checkout_order_processed` : Après création commande
+- `woocommerce_before_add_to_cart_button` : Champs personnalisés produit
+- `woocommerce_before_calculate_totals` : Application prix personnalisé
+- `woocommerce_checkout_create_order_line_item` : Sauvegarde métadonnées
+
+## Points importants
+- Les PDFs sont générés à la volée (pas de stockage)
+- Les coupons sont générés automatiquement après paiement
+- Endpoint public : `?dc25_gv_verify=CODE` et `?dc25_gv_download=CODE`
+- Le plugin doit fonctionner indépendamment du thème
+- Pas de dépendance jQuery côté frontend (vanilla JS uniquement)
+
+## Débogage
+- Logs WooCommerce : `wc_get_logger()->info/error/warning()`
+- Source des logs : `[ 'source' => 'dc25-vouchers' ]`
+- Voir les logs : WooCommerce > Statut > Journaux > dc25-vouchers

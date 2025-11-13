@@ -20,12 +20,12 @@ use Dompdf\Options;
 class DC25_PDF_Service {
 
 	/**
-	 * Générer un PDF pour un bon cadeau
+	 * Générer le contenu PDF en mémoire (sans sauvegarder)
 	 *
 	 * @param array $data Données du bon cadeau.
-	 * @return string|WP_Error Chemin du fichier PDF ou erreur.
+	 * @return string|WP_Error Contenu du PDF ou erreur.
 	 */
-	public static function generate_pdf( array $data ) {
+	public static function generate_pdf_content( array $data ) {
 		$settings = DC25_Settings::get_instance();
 
 		// Données requises
@@ -36,15 +36,6 @@ class DC25_PDF_Service {
 			}
 		}
 
-		// Créer le répertoire si nécessaire
-		$upload_dir = wp_upload_dir();
-		$year = date( 'Y' );
-		$month = date( 'm' );
-		$pdf_dir = trailingslashit( $upload_dir['basedir'] ) . "dc25-vouchers/{$year}/{$month}";
-		if ( ! file_exists( $pdf_dir ) ) {
-			wp_mkdir_p( $pdf_dir );
-		}
-
 		// Générer le QR code en base64
 		$qr_code = DC25_QR_Service::generate_qr_code_base64(
 			$data['coupon_code'],
@@ -53,9 +44,22 @@ class DC25_PDF_Service {
 			200
 		);
 
+		// Si erreur, logger mais continuer sans QR code
 		if ( is_wp_error( $qr_code ) ) {
-			return $qr_code;
+			if ( function_exists( 'wc_get_logger' ) ) {
+				wc_get_logger()->warning(
+					sprintf( 'Erreur génération QR code: %s', $qr_code->get_error_message() ),
+					[ 'source' => 'dc25-vouchers' ]
+				);
+			}
+			$qr_code = ''; // Continuer sans QR code plutôt que d'échouer
 		}
+
+		// Générer l'URL de vérification
+		$verify_url = add_query_arg( 'dc25_gv_verify', $data['coupon_code'], home_url() );
+
+		// Date de génération du PDF (utiliser current_time pour respecter le fuseau horaire WordPress)
+		$generation_date = date_i18n( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), current_time( 'timestamp' ) );
 
 		// Préparer les données pour le template
 		$template_data = [
@@ -66,6 +70,8 @@ class DC25_PDF_Service {
 			'message'       => $data['message'] ?? '',
 			'recipient_name' => $data['recipient_name'] ?? '',
 			'qr_code'       => $qr_code,
+			'verify_url'   => $verify_url,
+			'generation_date' => $generation_date,
 			'logo_url'      => $settings->get_logo_url(),
 			'theme_color'   => $settings->get_theme_color(),
 			'conditions'    => $settings->get_conditions_text(),
@@ -88,19 +94,13 @@ class DC25_PDF_Service {
 			$dompdf = new Dompdf( $options );
 			$dompdf->loadHtml( $html, get_bloginfo( 'charset' ) );
 
-			// Format A5 paysage
-			$paper_size = $settings->get_pdf_paper_size();
-			$paper_orientation = $settings->get_pdf_orientation();
-			$dompdf->setPaper( $paper_size, $paper_orientation );
+			// Format A5 vertical (portrait)
+			$dompdf->setPaper( 'A5', 'portrait' );
 
 			$dompdf->render();
 
-			// Sauvegarder le fichier
-			$filename = 'voucher-' . sanitize_file_name( $data['coupon_code'] ) . '.pdf';
-			$filepath = trailingslashit( $pdf_dir ) . $filename;
-			file_put_contents( $filepath, $dompdf->output() );
-
-			return $filepath;
+			// Retourner le contenu du PDF (sans sauvegarder)
+			return $dompdf->output();
 		} catch ( Exception $e ) {
 			return new WP_Error( 'pdf_generation_failed', $e->getMessage() );
 		}
@@ -138,15 +138,14 @@ class DC25_PDF_Service {
 	}
 
 	/**
-	 * Obtenir l'URL publique d'un PDF
-	 *
-	 * @param string $filepath Chemin du fichier.
-	 * @return string
+	 * Générer un PDF pour un bon cadeau (méthode de compatibilité - dépréciée)
+	 * 
+	 * @deprecated Utiliser generate_pdf_content() à la place
+	 * @param array $data Données du bon cadeau.
+	 * @return string|WP_Error Contenu du PDF ou erreur.
 	 */
-	public static function get_pdf_url( string $filepath ): string {
-		$upload_dir = wp_upload_dir();
-		$relative_path = str_replace( $upload_dir['basedir'], '', $filepath );
-		return trailingslashit( $upload_dir['baseurl'] ) . ltrim( $relative_path, '/' );
+	public static function generate_pdf( array $data ) {
+		return self::generate_pdf_content( $data );
 	}
 }
 

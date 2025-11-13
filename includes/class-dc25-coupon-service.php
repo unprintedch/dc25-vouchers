@@ -38,9 +38,9 @@ class DC25_Coupon_Service {
 		$coupon->set_usage_limit_per_user( 1 );
 		$coupon->set_limit_usage_to_x_items( null );
 
-		// Date d'expiration
-		$expiry_date = date( 'Y-m-d', strtotime( "+{$validity_days} days" ) );
-		$coupon->set_date_expires( strtotime( $expiry_date ) );
+		// Date d'expiration (utiliser current_time pour respecter le fuseau horaire)
+		$expiry_timestamp = current_time( 'timestamp' ) + ( $validity_days * DAY_IN_SECONDS );
+		$coupon->set_date_expires( $expiry_timestamp );
 
 		// Métadonnées
 		$coupon->update_meta_data( '_dc25_gift_voucher', 'yes' );

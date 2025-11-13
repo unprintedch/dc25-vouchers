@@ -148,7 +148,7 @@ class DC25_Settings {
 	public function get_recipient_email_content(): string {
 		return $this->get_option(
 			'recipient_email_content',
-			__( 'Bonjour {name},<br><br>Vous avez reçu un bon cadeau d\'un montant de {amount}.<br><br>Code: {coupon_code}<br><br>Message: {message}<br><br>Cordialement,<br>{site_name}', 'dc25-vouchers' )
+			__( 'Bonjour {name},<br><br>Vous avez reçu un bon cadeau d\'un montant de {amount}.<br><br>Code: {coupon_code}<br><br>Message: {message}<br><br>Le PDF de votre bon cadeau est joint à cet email.<br><br>{download_link}<br><br>Cordialement,<br>{site_name}', 'dc25-vouchers' )
 		);
 	}
 
@@ -293,17 +293,17 @@ if ( class_exists( 'WC_Settings_Page' ) ) {
 			],
 			[
 				'title'    => __( 'Sujet email destinataire', 'dc25-vouchers' ),
-				'desc'     => __( 'Placeholders: {name}, {coupon_code}, {amount}, {message}, {site_name}', 'dc25-vouchers' ),
+				'desc'     => __( 'Placeholders: {name}, {coupon_code}, {amount}, {message}, {site_name}, {download_url}', 'dc25-vouchers' ),
 				'id'       => 'dc25_gv_recipient_email_subject',
 				'type'     => 'text',
 				'default'  => __( 'Vous avez reçu un bon cadeau !', 'dc25-vouchers' ),
 			],
 			[
 				'title'    => __( 'Contenu email destinataire', 'dc25-vouchers' ),
-				'desc'     => __( 'Placeholders: {name}, {coupon_code}, {amount}, {message}, {site_name}', 'dc25-vouchers' ),
+				'desc'     => __( 'Placeholders: {name}, {coupon_code}, {amount}, {message}, {site_name}, {download_link} (bouton HTML), {download_url} (URL seule). Le PDF est aussi joint à l\'email.', 'dc25-vouchers' ),
 				'id'       => 'dc25_gv_recipient_email_content',
 				'type'     => 'textarea',
-				'default'  => __( 'Bonjour {name},<br><br>Vous avez reçu un bon cadeau d\'un montant de {amount}.<br><br>Code: {coupon_code}<br><br>Message: {message}<br><br>Cordialement,<br>{site_name}', 'dc25-vouchers' ),
+				'default'  => __( 'Bonjour {name},<br><br>Vous avez reçu un bon cadeau d\'un montant de {amount}.<br><br>Code: {coupon_code}<br><br>Message: {message}<br><br>Le PDF de votre bon cadeau est joint à cet email.<br><br>{download_link}<br><br>Cordialement,<br>{site_name}', 'dc25-vouchers' ),
 				'css'      => 'min-height: 200px;',
 			],
 			[

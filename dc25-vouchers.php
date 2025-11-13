@@ -41,8 +41,8 @@ if ( file_exists( $autoload ) ) {
 }
 
 // Inclusion des classes (sauf celles qui nécessitent WooCommerce)
-require_once DC25_PATH . 'includes/class-dc25-checkout-fields.php';
-require_once DC25_PATH . 'includes/class-dc25-order-handler.php';
+// Note: DC25_Order_Handler et DC25_Single_Product_Fields sont chargés via le hook woocommerce_loaded
+// pour garantir que WooCommerce est complètement chargé
 require_once DC25_PATH . 'includes/class-dc25-coupon-service.php';
 require_once DC25_PATH . 'includes/class-dc25-pdf-service.php';
 require_once DC25_PATH . 'includes/class-dc25-qr-service.php';
@@ -75,6 +75,12 @@ class DC25_Vouchers {
 	 */
 	private function __construct() {
 		$this->init_hooks();
+		// Charger l'endpoint de vérification immédiatement (ne dépend pas de WooCommerce)
+		if ( ! class_exists( 'DC25_Verify_Endpoint' ) ) {
+			require_once DC25_PATH . 'includes/class-dc25-verify-endpoint.php';
+		}
+		new DC25_Verify_Endpoint();
+		
 		$this->load_classes();
 	}
 
@@ -111,21 +117,34 @@ class DC25_Vouchers {
 
 		// Initialiser les settings
 		DC25_Settings::get_instance();
+		
+		// Initialiser les champs de la page produit (doit être fait après que WooCommerce soit chargé)
+		if ( ! class_exists( 'DC25_Single_Product_Fields' ) ) {
+			require_once DC25_PATH . 'includes/class-dc25-single-product-fields.php';
+		}
+		new DC25_Single_Product_Fields();
+		
+		// Initialiser le gestionnaire de commandes (DOIT être fait après que WooCommerce soit complètement chargé)
+		if ( ! class_exists( 'DC25_Order_Handler' ) ) {
+			require_once DC25_PATH . 'includes/class-dc25-order-handler.php';
+		}
+		new DC25_Order_Handler();
+		
+		// Initialiser l'interface d'administration
+		if ( ! class_exists( 'DC25_Vouchers_Admin' ) ) {
+			require_once DC25_PATH . 'includes/class-dc25-vouchers-admin.php';
+		}
+		new DC25_Vouchers_Admin();
 	}
 
 	/**
 	 * Chargement des classes
 	 */
 	private function load_classes(): void {
-		// Initialisation uniquement si WooCommerce est actif
-		if ( ! class_exists( 'WooCommerce' ) ) {
-			return;
-		}
-
-		// Note: DC25_Gift_Product_Type et DC25_Settings sont chargés via le hook plugins_loaded
-		new DC25_Checkout_Fields();
-		new DC25_Order_Handler();
-		new DC25_Verify_Endpoint();
+		// Note: DC25_Gift_Product_Type, DC25_Settings, DC25_Single_Product_Fields et DC25_Order_Handler
+		// sont maintenant chargés via le hook woocommerce_loaded dans init_woocommerce_features()
+		// pour garantir que WooCommerce est complètement chargé
+		// Note: DC25_Verify_Endpoint est déjà chargé dans le constructeur (ne dépend pas de WooCommerce)
 	}
 
 	/**

@@ -31,17 +31,8 @@ class DC25_QR_Service {
 	public static function generate_qr_code( string $coupon_code, float $amount, string $expiry_date, int $size = 200 ) {
 		$site_url = home_url();
 
-		// Données JSON pour le QR code
-		$data = [
-			'type'        => 'gift_voucher',
-			'code'        => $coupon_code,
-			'amount'      => $amount,
-			'currency'    => get_woocommerce_currency(),
-			'expires'     => $expiry_date,
-			'verify_url' => add_query_arg( 'dc25_gv_verify', $coupon_code, $site_url ),
-		];
-
-		$json_data = wp_json_encode( $data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+		// Le QR code contient directement l'URL de vérification (plus simple pour les scanners)
+		$verify_url = add_query_arg( 'dc25_gv_verify', $coupon_code, $site_url );
 
 		// Créer le répertoire si nécessaire
 		$upload_dir = wp_upload_dir();
@@ -52,7 +43,7 @@ class DC25_QR_Service {
 
 		// Générer le QR code
 		try {
-			$qr_code = QrCode::create( $json_data )
+			$qr_code = QrCode::create( $verify_url )
 				->setSize( $size )
 				->setMargin( 10 );
 
@@ -100,19 +91,11 @@ class DC25_QR_Service {
 	public static function generate_qr_code_base64( string $coupon_code, float $amount, string $expiry_date, int $size = 200 ) {
 		$site_url = home_url();
 
-		$data = [
-			'type'        => 'gift_voucher',
-			'code'        => $coupon_code,
-			'amount'      => $amount,
-			'currency'    => get_woocommerce_currency(),
-			'expires'     => $expiry_date,
-			'verify_url'  => add_query_arg( 'dc25_gv_verify', $coupon_code, $site_url ),
-		];
-
-		$json_data = wp_json_encode( $data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+		// Le QR code contient directement l'URL de vérification (plus simple pour les scanners)
+		$verify_url = add_query_arg( 'dc25_gv_verify', $coupon_code, $site_url );
 
 		try {
-			$qr_code = QrCode::create( $json_data )
+			$qr_code = QrCode::create( $verify_url )
 				->setSize( $size )
 				->setMargin( 10 );
 

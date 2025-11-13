@@ -1,14 +1,13 @@
-/**
- * Gestion du formulaire de bon cadeau sur la page produit
- * 
- * Ce script gère :
- * - La validation du montant saisi par le client
- * - L'activation/désactivation du bouton "Ajouter au panier"
- * - La mise à jour dynamique du prix affiché
- * - L'affichage conditionnel des champs d'adresse destinataire
- *
- * @package DC25_Vouchers
- */
+	/**
+	 * Gestion du formulaire de bon cadeau sur la page produit
+	 * 
+	 * Ce script gère :
+	 * - La validation du montant saisi par le client
+	 * - L'activation/désactivation du bouton "Ajouter au panier"
+	 * - La mise à jour dynamique du prix affiché
+	 *
+	 * @package DC25_Vouchers
+	 */
 
 (function() {
 	'use strict';
@@ -28,9 +27,6 @@
 	const amountInput = document.getElementById('dc25_gv_amount');
 	const addToCartButton = document.querySelector('button.single_add_to_cart_button, input.single_add_to_cart_button');
 	const physicalCheckbox = document.getElementById('dc25_gv_physical');
-	const shipToRadios = document.querySelectorAll('input[name="dc25_gv_ship_to"]');
-	const recipientAddressFields = document.querySelector('.dc25-recipient-address-fields');
-	const shipToWrapper = document.querySelector('.dc25-ship-to-wrapper');
 
 	// Vérifier que les éléments essentiels existent
 	if (!amountInput) {
@@ -169,48 +165,18 @@
 	}
 
 	/**
-	 * Gérer l'affichage des champs d'adresse destinataire
+	 * Gérer l'envoi physique
 	 */
 	function handlePhysicalDelivery() {
-		if (!physicalCheckbox || !shipToWrapper) {
+		if (!physicalCheckbox) {
 			return;
 		}
 
+		// Le supplément de 5 CHF sera ajouté automatiquement côté serveur via le fee
 		if (physicalCheckbox.checked) {
-			shipToWrapper.style.display = 'block';
+			console.log('Envoi physique activé (+ 5 CHF)');
 		} else {
-			shipToWrapper.style.display = 'none';
-			if (recipientAddressFields) {
-				recipientAddressFields.style.display = 'none';
-			}
-		}
-	}
-
-	/**
-	 * Gérer le choix de destination d'envoi
-	 */
-	function handleShipTo() {
-		if (!recipientAddressFields) {
-			return;
-		}
-
-		const selectedShipTo = document.querySelector('input[name="dc25_gv_ship_to"]:checked');
-		if (!selectedShipTo) {
-			return;
-		}
-
-		if (selectedShipTo.value === 'recipient') {
-			recipientAddressFields.style.display = 'block';
-			const requiredFields = recipientAddressFields.querySelectorAll('input, select');
-			requiredFields.forEach(field => {
-				field.setAttribute('required', 'required');
-			});
-		} else {
-			recipientAddressFields.style.display = 'none';
-			const requiredFields = recipientAddressFields.querySelectorAll('input, select');
-			requiredFields.forEach(field => {
-				field.removeAttribute('required');
-			});
+			console.log('Envoi physique désactivé');
 		}
 	}
 
@@ -237,11 +203,6 @@
 			disableAddToCartButton();
 		}
 
-		// Masquer les champs d'adresse destinataire par défaut
-		if (recipientAddressFields) {
-			recipientAddressFields.style.display = 'none';
-		}
-
 		// Écouter les changements du montant
 		amountInput.addEventListener('input', () => {
 			const amount = parseFloat(amountInput.value);
@@ -257,11 +218,6 @@
 		if (physicalCheckbox) {
 			physicalCheckbox.addEventListener('change', handlePhysicalDelivery);
 		}
-
-		// Gérer le choix de destination
-		shipToRadios.forEach(radio => {
-			radio.addEventListener('change', handleShipTo);
-		});
 
 		// Valider au chargement si le montant par défaut est valide
 		if (amountInput.value && parseFloat(amountInput.value) >= minAmount && parseFloat(amountInput.value) <= maxAmount) {

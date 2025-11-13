@@ -1,0 +1,54 @@
+# Composer
+/vendor/
+
+# Node modules (si vous utilisez npm/yarn)
+node_modules/
+
+# Fichiers de log
+*.log
+*.logs
+
+# Fichiers système macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDEs et éditeurs
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+
+# Fichiers temporaires
+*.tmp
+*.temp
+*.cache
+*.bak
+*.backup
+
+# Fichiers de build (si vous avez un système de build)
+/dist/
+/build/
+
+# Fichiers de test
+.phpunit.result.cache
+coverage/
+
+# Fichiers de configuration locaux
+.env
+.env.local
+.env.*.local
+
+# Archives
+*.zip
+*.tar
+*.tar.gz
+*.rar
+

@@ -42,7 +42,7 @@ function dc25_get_settings(): DC25_Settings {
  * Fonction helper pour afficher les champs produit (appelable depuis le template)
  */
 function dc25_display_product_fields(): void {
-	if ( ! class_exists( 'DC25_Checkout_Fields' ) ) {
+	if ( ! class_exists( 'DC25_Single_Product_Fields' ) ) {
 		return;
 	}
 
@@ -52,9 +52,9 @@ function dc25_display_product_fields(): void {
 	}
 
 	// Créer une instance temporaire juste pour appeler la méthode
-	$instance = new DC25_Checkout_Fields();
+	$instance = new DC25_Single_Product_Fields();
 	if ( method_exists( $instance, 'add_product_page_fields' ) ) {
-		$instance->add_product_page_fields( true ); // Force l'affichage
+		$instance->add_product_page_fields();
 	}
 }
 
