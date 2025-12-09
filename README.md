@@ -10,7 +10,7 @@ Plugin WooCommerce pour la vente de bons cadeaux avec prix libre, génération a
   - Montant minimum/maximum (défaut: 20-200 CHF)
   - Montant par défaut
   - Durée de validité (défaut: 365 jours)
-  - Préfixe coupon (défaut: GV-)
+- Préfixe coupon (défaut: NVT-)
   - Option envoi physique
   - Taux de TVA (défaut: 0%)
 
@@ -46,11 +46,11 @@ Le QR code contient un JSON avec :
 ```json
 {
   "type": "gift_voucher",
-  "code": "GV-7T4Q9C2K",
+  "code": "NVT-7T4Q9C2K",
   "amount": 150,
   "currency": "CHF",
   "expires": "2026-11-12",
-  "verify_url": "https://site.tld/?dc25_gv_verify=GV-7T4Q9C2K"
+  "verify_url": "https://site.tld/?dc25_gv_verify=NVT-7T4Q9C2K"
 }
 ```
 

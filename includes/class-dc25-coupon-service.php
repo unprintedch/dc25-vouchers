@@ -24,7 +24,7 @@ class DC25_Coupon_Service {
 	 * @param int    $validity_days Durée de validité en jours.
 	 * @return WC_Coupon|WP_Error
 	 */
-	public static function create_coupon( float $amount, string $prefix = 'GV-', int $validity_days = 365 ) {
+	public static function create_coupon( float $amount, string $prefix = 'NVT-', int $validity_days = 365 ) {
 		// Générer un code unique
 		$code = self::generate_unique_code( $prefix );
 

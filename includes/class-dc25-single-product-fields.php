@@ -195,7 +195,7 @@ class DC25_Single_Product_Fields {
 				></textarea>
 			</p>
 
-			<p class="form-row form-row-first">
+			<p class="form-row form-row-wide">
 				<label for="dc25_gv_recipient_name">
 					<?php esc_html_e( 'Nom du destinataire', 'dc25-vouchers' ); ?>
 				</label>
@@ -205,19 +205,6 @@ class DC25_Single_Product_Fields {
 					name="dc25_gv_recipient_name" 
 					class="input-text" 
 					placeholder="<?php esc_attr_e( 'Nom du destinataire (optionnel)', 'dc25-vouchers' ); ?>"
-				/>
-			</p>
-
-			<p class="form-row form-row-last">
-				<label for="dc25_gv_recipient_email">
-					<?php esc_html_e( 'Email du destinataire', 'dc25-vouchers' ); ?>
-				</label>
-				<input 
-					type="email" 
-					id="dc25_gv_recipient_email" 
-					name="dc25_gv_recipient_email" 
-					class="input-text" 
-					placeholder="<?php esc_attr_e( 'email@example.com (optionnel)', 'dc25-vouchers' ); ?>"
 				/>
 			</p>
 
@@ -284,12 +271,6 @@ class DC25_Single_Product_Fields {
 			return false;
 		}
 
-		// Validation email destinataire
-		if ( ! empty( $_POST['dc25_gv_recipient_email'] ) && ! is_email( $_POST['dc25_gv_recipient_email'] ) ) {
-			wc_add_notice( __( 'L\'adresse email du destinataire n\'est pas valide.', 'dc25-vouchers' ), 'error' );
-			return false;
-		}
-
 		return $passed;
 	}
 
@@ -320,10 +301,6 @@ class DC25_Single_Product_Fields {
 		// Destinataire
 		if ( isset( $_POST['dc25_gv_recipient_name'] ) ) {
 			$cart_item_data['dc25_gv_recipient_name'] = sanitize_text_field( $_POST['dc25_gv_recipient_name'] );
-		}
-
-		if ( isset( $_POST['dc25_gv_recipient_email'] ) ) {
-			$cart_item_data['dc25_gv_recipient_email'] = sanitize_email( $_POST['dc25_gv_recipient_email'] );
 		}
 
 		// Envoi physique
@@ -368,13 +345,6 @@ class DC25_Single_Product_Fields {
 			];
 		}
 
-		if ( ! empty( $cart_item['dc25_gv_recipient_email'] ) ) {
-			$item_data[] = [
-				'name'    => __( 'Email destinataire', 'dc25-vouchers' ),
-				'display' => esc_html( $cart_item['dc25_gv_recipient_email'] ),
-			];
-		}
-
 		// Envoi physique
 		if ( ! empty( $cart_item['dc25_gv_physical'] ) ) {
 			$item_data[] = [
@@ -410,10 +380,6 @@ class DC25_Single_Product_Fields {
 
 		if ( isset( $values['dc25_gv_recipient_name'] ) ) {
 			$item->update_meta_data( '_dc25_gv_recipient_name', sanitize_text_field( $values['dc25_gv_recipient_name'] ) );
-		}
-
-		if ( isset( $values['dc25_gv_recipient_email'] ) ) {
-			$item->update_meta_data( '_dc25_gv_recipient_email', sanitize_email( $values['dc25_gv_recipient_email'] ) );
 		}
 
 		if ( isset( $values['dc25_gv_physical'] ) ) {
@@ -477,7 +443,6 @@ class DC25_Single_Product_Fields {
 			'_dc25_gv_amount',
 			'_dc25_gv_message',
 			'_dc25_gv_recipient_name',
-			'_dc25_gv_recipient_email',
 			'_dc25_gv_physical',
 			'_dc25_gv_coupon_code',
 		];
@@ -496,7 +461,6 @@ class DC25_Single_Product_Fields {
 			'_dc25_gv_amount'         => __( 'Montant', 'dc25-vouchers' ),
 			'_dc25_gv_message'        => __( 'Message', 'dc25-vouchers' ),
 			'_dc25_gv_recipient_name' => __( 'Destinataire', 'dc25-vouchers' ),
-			'_dc25_gv_recipient_email' => __( 'Email destinataire', 'dc25-vouchers' ),
 			'_dc25_gv_physical'       => __( 'Envoi physique', 'dc25-vouchers' ),
 			'_dc25_gv_coupon_code'    => __( 'Code coupon', 'dc25-vouchers' ),
 		];
@@ -523,10 +487,6 @@ class DC25_Single_Product_Fields {
 
 			case '_dc25_gv_physical':
 				return 'yes' === $display_value ? __( 'Oui (+ 5 CHF)', 'dc25-vouchers' ) : __( 'Non', 'dc25-vouchers' );
-
-			case '_dc25_gv_recipient_email':
-				return '<a href="mailto:' . esc_attr( $display_value ) . '">' . esc_html( $display_value ) . '</a>';
-
 
 			case '_dc25_gv_message':
 				// Limiter la longueur du message pour l'affichage

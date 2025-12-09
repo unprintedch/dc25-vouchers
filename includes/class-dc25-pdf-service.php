@@ -23,16 +23,25 @@ class DC25_PDF_Service {
 	 * Générer le contenu PDF en mémoire (sans sauvegarder)
 	 *
 	 * @param array $data Données du bon cadeau.
+	 * @param bool  $is_preview Indique s'il s'agit d'un aperçu générique.
 	 * @return string|WP_Error Contenu du PDF ou erreur.
 	 */
-	public static function generate_pdf_content( array $data ) {
+	public static function generate_pdf_content( array $data, bool $is_preview = false ) {
 		$settings = DC25_Settings::get_instance();
 
 		// Données requises
 		$required = [ 'coupon_code', 'amount', 'expiry_date' ];
-		foreach ( $required as $key ) {
-			if ( empty( $data[ $key ] ) ) {
-				return new WP_Error( 'missing_data', sprintf( __( 'Donnée manquante: %s', 'dc25-vouchers' ), $key ) );
+		if ( ! $is_preview ) {
+			foreach ( $required as $key ) {
+				if ( empty( $data[ $key ] ) ) {
+					return new WP_Error( 'missing_data', sprintf( __( 'Donnée manquante: %s', 'dc25-vouchers' ), $key ) );
+				}
+			}
+		} else {
+			foreach ( $required as $key ) {
+				if ( empty( $data[ $key ] ) ) {
+					$data[ $key ] = $key === 'amount' ? 100 : __( 'EXEMPLE', 'dc25-vouchers' );
+				}
 			}
 		}
 
@@ -74,7 +83,32 @@ class DC25_PDF_Service {
 			'generation_date' => $generation_date,
 			'logo_url'      => $settings->get_logo_url(),
 			'theme_color'   => $settings->get_theme_color(),
+			'accent_color'  => $settings->get_accent_color(),
+			'text_color'    => $settings->get_text_color(),
 			'conditions'    => $settings->get_conditions_text(),
+			'background_url' => $settings->get_pdf_background_url(),
+			'font_family'   => $settings->get_pdf_font_family(),
+			'layout_preset' => $settings->get_pdf_layout_preset(),
+			'title_text'    => $settings->get_pdf_title_text(),
+			'subtitle_text' => $settings->get_pdf_subtitle_text(),
+			'footer_text'   => $settings->get_pdf_footer_text(),
+			'from_label'    => $settings->get_pdf_from_label(),
+			'for_label'     => $settings->get_pdf_for_label(),
+			'from_name'     => $data['from_name'] ?? '',
+			'back_title'    => $settings->get_pdf_back_title(),
+			'back_partner_title' => $settings->get_pdf_back_partner_title(),
+			'back_partner_body'  => $settings->get_pdf_back_partner_body(),
+			'back_partner_link_label' => $settings->get_pdf_back_partner_link_label(),
+			'back_partner_link_url'   => $settings->get_pdf_back_partner_link_url(),
+			'back_online_title'       => $settings->get_pdf_back_online_title(),
+			'back_online_body'        => $settings->get_pdf_back_online_body(),
+			'back_online_link_label'  => $settings->get_pdf_back_online_link_label(),
+			'back_online_link_url'    => $settings->get_pdf_back_online_link_url(),
+			'back_online_code_label'  => $settings->get_pdf_back_online_code_label(),
+			'back_validity_notice'    => $settings->get_pdf_back_validity_notice(),
+			'back_banner_title'       => $settings->get_pdf_back_banner_title(),
+			'back_banner_text'        => $settings->get_pdf_back_banner_text(),
+			'is_preview'    => $is_preview,
 		];
 
 		// Charger le template
@@ -94,8 +128,11 @@ class DC25_PDF_Service {
 			$dompdf = new Dompdf( $options );
 			$dompdf->loadHtml( $html, get_bloginfo( 'charset' ) );
 
-			// Format A5 vertical (portrait)
-			$dompdf->setPaper( 'A5', 'portrait' );
+			// Format configuré
+			$paper_size = strtoupper( $settings->get_pdf_paper_size() );
+			$orientation = $settings->get_pdf_orientation();
+
+			$dompdf->setPaper( $paper_size, $orientation );
 
 			$dompdf->render();
 
@@ -145,7 +182,7 @@ class DC25_PDF_Service {
 	 * @return string|WP_Error Contenu du PDF ou erreur.
 	 */
 	public static function generate_pdf( array $data ) {
-		return self::generate_pdf_content( $data );
+		return self::generate_pdf_content( $data, false );
 	}
 }
 

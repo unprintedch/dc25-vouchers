@@ -24,6 +24,8 @@ class DC25_Vouchers_Admin {
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_admin_scripts' ] );
 		add_action( 'admin_post_dc25_download_pdf', [ $this, 'handle_download_pdf' ] );
 		add_action( 'admin_post_dc25_generate_coupon', [ $this, 'handle_generate_coupon' ] );
+		add_action( 'admin_post_dc25_save_pdf_preview', [ $this, 'handle_save_pdf_preview' ] );
+		add_action( 'admin_post_dc25_preview_pdf', [ $this, 'handle_preview_pdf' ] );
 	}
 
 	/**
@@ -50,6 +52,8 @@ class DC25_Vouchers_Admin {
 			return;
 		}
 
+		wp_enqueue_media();
+
 		wp_enqueue_style(
 			'dc25-vouchers-admin',
 			DC25_URL . 'assets/css/admin.css',
@@ -62,6 +66,8 @@ class DC25_Vouchers_Admin {
 	 * Rendre la page d'administration
 	 */
 	public function render_admin_page(): void {
+		$active_tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : 'list';
+
 		// Afficher les messages de retour
 		if ( isset( $_GET['message'] ) ) {
 			switch ( $_GET['message'] ) {
@@ -82,196 +88,313 @@ class DC25_Vouchers_Admin {
 					printf( esc_html__( 'Erreur lors de la génération du coupon : %s', 'dc25-vouchers' ), esc_html( $error ) );
 					echo '</p></div>';
 					break;
+				case 'appearance_saved':
+					echo '<div class="notice notice-success is-dismissible"><p>';
+					esc_html_e( 'Apparence du PDF enregistrée.', 'dc25-vouchers' );
+					echo '</p></div>';
+					break;
 			}
 		}
 
-		$vouchers = $this->get_all_vouchers();
 		?>
 		<div class="wrap">
 			<h1><?php esc_html_e( 'Bons cadeaux', 'dc25-vouchers' ); ?></h1>
-			
+			<h2 class="nav-tab-wrapper">
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=dc25-vouchers&tab=list' ) ); ?>" class="nav-tab <?php echo 'list' === $active_tab ? 'nav-tab-active' : ''; ?>"><?php esc_html_e( 'Bons cadeaux', 'dc25-vouchers' ); ?></a>
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=dc25-vouchers&tab=pdf-preview' ) ); ?>" class="nav-tab <?php echo 'pdf-preview' === $active_tab ? 'nav-tab-active' : ''; ?>"><?php esc_html_e( 'Aperçu PDF', 'dc25-vouchers' ); ?></a>
+			</h2>
+
 			<div class="dc25-vouchers-admin">
-				<?php if ( empty( $vouchers ) ) : ?>
-					<div class="notice notice-info">
-						<p><?php esc_html_e( 'Aucun bon cadeau trouvé.', 'dc25-vouchers' ); ?></p>
-						<p><small><?php esc_html_e( 'Les bons cadeaux apparaîtront ici une fois qu\'une commande contenant un bon cadeau aura été créée.', 'dc25-vouchers' ); ?></small></p>
-					</div>
-				<?php else : ?>
-					<table class="wp-list-table widefat fixed striped">
-						<thead>
-							<tr>
-								<th><?php esc_html_e( 'Code coupon', 'dc25-vouchers' ); ?></th>
-								<th><?php esc_html_e( 'Montant', 'dc25-vouchers' ); ?></th>
-								<th><?php esc_html_e( 'Commande', 'dc25-vouchers' ); ?></th>
-								<th><?php esc_html_e( 'Date', 'dc25-vouchers' ); ?></th>
-								<th><?php esc_html_e( 'Expiration', 'dc25-vouchers' ); ?></th>
-								<th><?php esc_html_e( 'Statut', 'dc25-vouchers' ); ?></th>
-								<th><?php esc_html_e( 'Destinataire', 'dc25-vouchers' ); ?></th>
-								<th><?php esc_html_e( 'Actions', 'dc25-vouchers' ); ?></th>
-							</tr>
-						</thead>
-						<tbody>
-							<?php foreach ( $vouchers as $voucher ) : ?>
-								<tr>
-									<td>
-										<?php if ( ! empty( $voucher['coupon_edit_url'] ) ) : ?>
-											<a href="<?php echo esc_url( $voucher['coupon_edit_url'] ); ?>" target="_blank">
-												<strong><?php echo esc_html( $voucher['coupon_code'] ); ?></strong>
-											</a>
-										<?php else : ?>
-											<strong><?php echo esc_html( $voucher['coupon_code'] ); ?></strong>
-										<?php endif; ?>
-									</td>
-									<td>
-										<?php echo wp_kses_post( wc_price( $voucher['amount'] ) ); ?>
-									</td>
-									<td>
-										<a href="<?php echo esc_url( admin_url( 'post.php?post=' . $voucher['order_id'] . '&action=edit' ) ); ?>">
-											#<?php echo esc_html( $voucher['order_id'] ); ?>
-										</a>
-									</td>
-									<td>
-										<?php echo esc_html( $voucher['order_date'] ); ?>
-									</td>
-									<td>
-										<?php echo esc_html( $voucher['expiry_date'] ); ?>
-									</td>
-									<td>
-										<span class="dc25-status dc25-status-<?php echo esc_attr( $voucher['status'] ); ?>" title="<?php esc_attr_e( 'Statut du coupon WooCommerce', 'dc25-vouchers' ); ?>">
-											<?php echo esc_html( $voucher['status_label'] ); ?>
-										</span>
-									</td>
-									<td>
-										<?php if ( ! empty( $voucher['recipient_name'] ) ) : ?>
-											<?php echo esc_html( $voucher['recipient_name'] ); ?>
-											<?php if ( ! empty( $voucher['recipient_email'] ) ) : ?>
-												<br><small><?php echo esc_html( $voucher['recipient_email'] ); ?></small>
-											<?php endif; ?>
-										<?php else : ?>
-											<span class="description"><?php esc_html_e( 'Non renseigné', 'dc25-vouchers' ); ?></span>
-										<?php endif; ?>
-									</td>
-									<td>
-										<?php if ( empty( $voucher['coupon_code'] ) || __( 'Non généré', 'dc25-vouchers' ) === $voucher['coupon_code'] ) : ?>
-											<a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=dc25_generate_coupon&voucher_id=' . $voucher['item_id'] ), 'dc25_generate_coupon' ) ); ?>" class="button button-primary button-small">
-												<?php esc_html_e( 'Générer le coupon', 'dc25-vouchers' ); ?>
-											</a>
-										<?php else : ?>
-											<a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=dc25_download_pdf&voucher_id=' . $voucher['item_id'] ), 'dc25_download_pdf' ) ); ?>" class="button button-small">
-												<?php esc_html_e( 'Télécharger PDF', 'dc25-vouchers' ); ?>
-											</a>
-										<?php endif; ?>
-										<button type="button" class="button button-small dc25-view-details" data-voucher-id="<?php echo esc_attr( $voucher['item_id'] ); ?>">
-											<?php esc_html_e( 'Détails', 'dc25-vouchers' ); ?>
-										</button>
-									</td>
-								</tr>
-								<tr class="dc25-voucher-details" id="dc25-details-<?php echo esc_attr( $voucher['item_id'] ); ?>" style="display: none;">
-									<td colspan="9">
-										<div class="dc25-details-content">
-											<h3><?php esc_html_e( 'Détails du bon cadeau', 'dc25-vouchers' ); ?></h3>
-											<table class="form-table">
-												<tr>
-													<th><?php esc_html_e( 'Code coupon', 'dc25-vouchers' ); ?></th>
-													<td>
-														<?php if ( ! empty( $voucher['coupon_edit_url'] ) ) : ?>
-															<a href="<?php echo esc_url( $voucher['coupon_edit_url'] ); ?>" target="_blank">
-																<code><?php echo esc_html( $voucher['coupon_code'] ); ?></code>
-															</a>
-														<?php else : ?>
-															<code><?php echo esc_html( $voucher['coupon_code'] ); ?></code>
-														<?php endif; ?>
-													</td>
-												</tr>
-												<tr>
-													<th><?php esc_html_e( 'Montant', 'dc25-vouchers' ); ?></th>
-													<td><?php echo wp_kses_post( wc_price( $voucher['amount'] ) ); ?></td>
-												</tr>
-												<?php if ( ! empty( $voucher['message'] ) ) : ?>
-													<tr>
-														<th><?php esc_html_e( 'Message', 'dc25-vouchers' ); ?></th>
-														<td><?php echo esc_html( $voucher['message'] ); ?></td>
-													</tr>
-												<?php endif; ?>
-												<tr>
-													<th><?php esc_html_e( 'Date de commande', 'dc25-vouchers' ); ?></th>
-													<td><?php echo esc_html( $voucher['order_date'] ); ?></td>
-												</tr>
-												<tr>
-													<th><?php esc_html_e( 'Date d\'expiration', 'dc25-vouchers' ); ?></th>
-													<td><?php echo esc_html( $voucher['expiry_date'] ); ?></td>
-												</tr>
-												<tr>
-													<th><?php esc_html_e( 'Statut', 'dc25-vouchers' ); ?></th>
-													<td>
-														<span class="dc25-status dc25-status-<?php echo esc_attr( $voucher['status'] ); ?>" title="<?php esc_attr_e( 'Statut du coupon WooCommerce', 'dc25-vouchers' ); ?>">
-															<?php echo esc_html( $voucher['status_label'] ); ?>
-														</span>
-													</td>
-												</tr>
-												<?php if ( ! empty( $voucher['recipient_name'] ) ) : ?>
-													<tr>
-														<th><?php esc_html_e( 'Destinataire', 'dc25-vouchers' ); ?></th>
-														<td>
-															<?php echo esc_html( $voucher['recipient_name'] ); ?>
-															<?php if ( ! empty( $voucher['recipient_email'] ) ) : ?>
-																<br><small><?php echo esc_html( $voucher['recipient_email'] ); ?></small>
-															<?php endif; ?>
-														</td>
-													</tr>
-												<?php endif; ?>
-												<?php if ( ! empty( $voucher['physical'] ) && 'yes' === $voucher['physical'] ) : ?>
-													<tr>
-														<th><?php esc_html_e( 'Envoi physique', 'dc25-vouchers' ); ?></th>
-														<td><?php esc_html_e( 'Oui (+ 5 CHF)', 'dc25-vouchers' ); ?></td>
-													</tr>
-												<?php endif; ?>
-												<?php if ( ! empty( $voucher['redeemed_by'] ) ) : ?>
-													<tr>
-														<th><?php esc_html_e( 'Encaissé par', 'dc25-vouchers' ); ?></th>
-														<td>
-															<?php echo esc_html( $voucher['redeemed_by'] ); ?>
-															<?php if ( ! empty( $voucher['redeemed_at'] ) ) : ?>
-																<br><small><?php 
-																	$redeemed_date = date_i18n( 
-																		get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), 
-																		strtotime( $voucher['redeemed_at'] ) 
-																	);
-																	printf( esc_html__( 'Le %s', 'dc25-vouchers' ), esc_html( $redeemed_date ) );
-																?></small>
-															<?php endif; ?>
-														</td>
-													</tr>
-												<?php endif; ?>
-												<?php if ( ! empty( $voucher['receipt_file'] ) ) : ?>
-													<tr>
-														<th><?php esc_html_e( 'Justificatif', 'dc25-vouchers' ); ?></th>
-														<td>
-															<a href="<?php echo esc_url( $voucher['receipt_file'] ); ?>" target="_blank" class="button button-small">
-																<?php esc_html_e( 'Voir le fichier', 'dc25-vouchers' ); ?>
-															</a>
-														</td>
-													</tr>
-												<?php endif; ?>
-											</table>
-										</div>
-									</td>
-								</tr>
-							<?php endforeach; ?>
-						</tbody>
-					</table>
-				<?php endif; ?>
+				<?php
+				if ( 'pdf-preview' === $active_tab ) {
+					$this->render_pdf_preview_tab();
+				} else {
+					$this->render_list_tab();
+				}
+				?>
 			</div>
 		</div>
+		<?php
+	}
 
-		<script>
-		jQuery(document).ready(function($) {
-			$('.dc25-view-details').on('click', function() {
-				var voucherId = $(this).data('voucher-id');
-				$('#dc25-details-' + voucherId).toggle();
+	/**
+	 * Afficher l'onglet liste
+	 */
+	private function render_list_tab(): void {
+		$vouchers = $this->get_all_vouchers();
+		if ( empty( $vouchers ) ) : ?>
+			<div class="notice notice-info">
+				<p><?php esc_html_e( 'Aucun bon cadeau trouvé.', 'dc25-vouchers' ); ?></p>
+				<p><small><?php esc_html_e( 'Les bons cadeaux apparaîtront ici une fois qu\'une commande contenant un bon cadeau aura été créée.', 'dc25-vouchers' ); ?></small></p>
+			</div>
+		<?php else : ?>
+			<table class="wp-list-table widefat fixed striped">
+				<thead>
+					<tr>
+						<th><?php esc_html_e( 'Code coupon', 'dc25-vouchers' ); ?></th>
+						<th><?php esc_html_e( 'Montant', 'dc25-vouchers' ); ?></th>
+						<th><?php esc_html_e( 'Commande', 'dc25-vouchers' ); ?></th>
+						<th><?php esc_html_e( 'Date', 'dc25-vouchers' ); ?></th>
+						<th><?php esc_html_e( 'Expiration', 'dc25-vouchers' ); ?></th>
+						<th><?php esc_html_e( 'Statut', 'dc25-vouchers' ); ?></th>
+						<th><?php esc_html_e( 'Destinataire', 'dc25-vouchers' ); ?></th>
+						<th><?php esc_html_e( 'Actions', 'dc25-vouchers' ); ?></th>
+					</tr>
+				</thead>
+				<tbody>
+					<?php foreach ( $vouchers as $voucher ) : ?>
+						<tr>
+							<td>
+								<?php if ( ! empty( $voucher['coupon_edit_url'] ) ) : ?>
+									<a href="<?php echo esc_url( $voucher['coupon_edit_url'] ); ?>" target="_blank">
+										<strong><?php echo esc_html( $voucher['coupon_code'] ); ?></strong>
+									</a>
+								<?php else : ?>
+									<strong><?php echo esc_html( $voucher['coupon_code'] ); ?></strong>
+								<?php endif; ?>
+							</td>
+							<td>
+								<?php echo wp_kses_post( wc_price( $voucher['amount'] ) ); ?>
+							</td>
+							<td>
+								<a href="<?php echo esc_url( admin_url( 'post.php?post=' . $voucher['order_id'] . '&action=edit' ) ); ?>">
+									#<?php echo esc_html( $voucher['order_id'] ); ?>
+								</a>
+							</td>
+							<td>
+								<?php echo esc_html( $voucher['order_date'] ); ?>
+							</td>
+							<td>
+								<?php echo esc_html( $voucher['expiry_date'] ); ?>
+							</td>
+							<td>
+								<span class="dc25-status dc25-status-<?php echo esc_attr( $voucher['status'] ); ?>" title="<?php esc_attr_e( 'Statut du coupon WooCommerce', 'dc25-vouchers' ); ?>">
+									<?php echo esc_html( $voucher['status_label'] ); ?>
+								</span>
+							</td>
+							<td>
+								<?php if ( ! empty( $voucher['recipient_name'] ) ) : ?>
+									<?php echo esc_html( $voucher['recipient_name'] ); ?>
+									<?php if ( ! empty( $voucher['recipient_email'] ) ) : ?>
+										<br><small><?php echo esc_html( $voucher['recipient_email'] ); ?></small>
+									<?php endif; ?>
+								<?php else : ?>
+									<span class="description"><?php esc_html_e( 'Non renseigné', 'dc25-vouchers' ); ?></span>
+								<?php endif; ?>
+							</td>
+							<td>
+								<?php if ( empty( $voucher['coupon_code'] ) || __( 'Non généré', 'dc25-vouchers' ) === $voucher['coupon_code'] ) : ?>
+									<a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=dc25_generate_coupon&voucher_id=' . $voucher['item_id'] ), 'dc25_generate_coupon' ) ); ?>" class="button button-primary button-small">
+										<?php esc_html_e( 'Générer le coupon', 'dc25-vouchers' ); ?>
+									</a>
+								<?php else : ?>
+									<a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=dc25_download_pdf&voucher_id=' . $voucher['item_id'] ), 'dc25_download_pdf' ) ); ?>" class="button button-small">
+										<?php esc_html_e( 'Télécharger PDF', 'dc25-vouchers' ); ?>
+									</a>
+								<?php endif; ?>
+								<button type="button" class="button button-small dc25-view-details" data-voucher-id="<?php echo esc_attr( $voucher['item_id'] ); ?>">
+									<?php esc_html_e( 'Détails', 'dc25-vouchers' ); ?>
+								</button>
+							</td>
+						</tr>
+						<tr class="dc25-voucher-details" id="dc25-details-<?php echo esc_attr( $voucher['item_id'] ); ?>" style="display: none;">
+							<td colspan="9">
+								<div class="dc25-details-content">
+									<h3><?php esc_html_e( 'Détails du bon cadeau', 'dc25-vouchers' ); ?></h3>
+									<table class="form-table">
+										<tr>
+											<th><?php esc_html_e( 'Code coupon', 'dc25-vouchers' ); ?></th>
+											<td>
+												<?php if ( ! empty( $voucher['coupon_edit_url'] ) ) : ?>
+													<a href="<?php echo esc_url( $voucher['coupon_edit_url'] ); ?>" target="_blank">
+														<code><?php echo esc_html( $voucher['coupon_code'] ); ?></code>
+													</a>
+												<?php else : ?>
+													<code><?php echo esc_html( $voucher['coupon_code'] ); ?></code>
+												<?php endif; ?>
+											</td>
+										</tr>
+										<tr>
+											<th><?php esc_html_e( 'Montant', 'dc25-vouchers' ); ?></th>
+											<td><?php echo wp_kses_post( wc_price( $voucher['amount'] ) ); ?></td>
+										</tr>
+										<?php if ( ! empty( $voucher['message'] ) ) : ?>
+											<tr>
+												<th><?php esc_html_e( 'Message', 'dc25-vouchers' ); ?></th>
+												<td><?php echo esc_html( $voucher['message'] ); ?></td>
+											</tr>
+										<?php endif; ?>
+										<tr>
+											<th><?php esc_html_e( 'Date de commande', 'dc25-vouchers' ); ?></th>
+											<td><?php echo esc_html( $voucher['order_date'] ); ?></td>
+										</tr>
+										<tr>
+											<th><?php esc_html_e( 'Date d\'expiration', 'dc25-vouchers' ); ?></th>
+											<td><?php echo esc_html( $voucher['expiry_date'] ); ?></td>
+										</tr>
+										<tr>
+											<th><?php esc_html_e( 'Statut', 'dc25-vouchers' ); ?></th>
+											<td>
+												<span class="dc25-status dc25-status-<?php echo esc_attr( $voucher['status'] ); ?>" title="<?php esc_attr_e( 'Statut du coupon WooCommerce', 'dc25-vouchers' ); ?>">
+													<?php echo esc_html( $voucher['status_label'] ); ?>
+												</span>
+											</td>
+										</tr>
+										<?php if ( ! empty( $voucher['recipient_name'] ) ) : ?>
+											<tr>
+												<th><?php esc_html_e( 'Destinataire', 'dc25-vouchers' ); ?></th>
+												<td>
+													<?php echo esc_html( $voucher['recipient_name'] ); ?>
+													<?php if ( ! empty( $voucher['recipient_email'] ) ) : ?>
+														<br><small><?php echo esc_html( $voucher['recipient_email'] ); ?></small>
+													<?php endif; ?>
+												</td>
+											</tr>
+										<?php endif; ?>
+										<?php if ( ! empty( $voucher['physical'] ) && 'yes' === $voucher['physical'] ) : ?>
+											<tr>
+												<th><?php esc_html_e( 'Envoi physique', 'dc25-vouchers' ); ?></th>
+												<td><?php esc_html_e( 'Oui (+ 5 CHF)', 'dc25-vouchers' ); ?></td>
+											</tr>
+										<?php endif; ?>
+										<?php if ( ! empty( $voucher['redeemed_by'] ) ) : ?>
+											<tr>
+												<th><?php esc_html_e( 'Encaissé par', 'dc25-vouchers' ); ?></th>
+												<td>
+													<?php echo esc_html( $voucher['redeemed_by'] ); ?>
+													<?php if ( ! empty( $voucher['redeemed_at'] ) ) : ?>
+														<br><small><?php
+															$redeemed_date = date_i18n(
+																get_option( 'date_format' ) . ' ' . get_option( 'time_format' ),
+																strtotime( $voucher['redeemed_at'] )
+															);
+															printf( esc_html__( 'Le %s', 'dc25-vouchers' ), esc_html( $redeemed_date ) );
+														?></small>
+													<?php endif; ?>
+												</td>
+											</tr>
+										<?php endif; ?>
+										<?php if ( ! empty( $voucher['receipt_file'] ) ) : ?>
+											<tr>
+												<th><?php esc_html_e( 'Justificatif', 'dc25-vouchers' ); ?></th>
+												<td>
+													<a href="<?php echo esc_url( $voucher['receipt_file'] ); ?>" target="_blank" class="button button-small">
+														<?php esc_html_e( 'Voir le fichier', 'dc25-vouchers' ); ?>
+													</a>
+												</td>
+											</tr>
+										<?php endif; ?>
+									</table>
+								</div>
+							</td>
+						</tr>
+					<?php endforeach; ?>
+				</tbody>
+			</table>
+			<script>
+			jQuery(document).ready(function($) {
+				$('.dc25-view-details').on('click', function() {
+					var voucherId = $(this).data('voucher-id');
+					$('#dc25-details-' + voucherId).toggle();
+				});
 			});
-		});
-		</script>
+			</script>
+		<?php endif;
+	}
+
+	/**
+	 * Afficher l'onglet d'aperçu PDF
+	 */
+	private function render_pdf_preview_tab(): void {
+		$settings = DC25_Settings::get_instance();
+		?>
+		<div class="dc25-pdf-preview">
+			<p><?php esc_html_e( 'Ajustez l’apparence du PDF et générez un aperçu statique.', 'dc25-vouchers' ); ?></p>
+
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="max-width: 860px;">
+				<?php wp_nonce_field( 'dc25_save_pdf_preview' ); ?>
+				<input type="hidden" name="action" value="dc25_save_pdf_preview" />
+				<table class="form-table">
+					<tr>
+						<th><label for="dc25_gv_pdf_background_url"><?php esc_html_e( 'Image de fond', 'dc25-vouchers' ); ?></label></th>
+						<td>
+							<input type="text" id="dc25_gv_pdf_background_url" name="dc25_gv_pdf_background_url" class="regular-text" value="<?php echo esc_attr( $settings->get_pdf_background_url() ); ?>" placeholder="https://..." />
+							<button type="button" class="button dc25-media-picker" data-target="dc25_gv_pdf_background_url"><?php esc_html_e( 'Choisir dans la bibliothèque', 'dc25-vouchers' ); ?></button>
+							<p class="description"><?php esc_html_e( 'Utilisez une image large, idéalement 1748x1240 pour A6 horizontal.', 'dc25-vouchers' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th><label for="dc25_gv_pdf_logo_url"><?php esc_html_e( 'Logo PDF', 'dc25-vouchers' ); ?></label></th>
+						<td>
+							<input type="text" id="dc25_gv_pdf_logo_url" name="dc25_gv_pdf_logo_url" class="regular-text" value="<?php echo esc_attr( $settings->get_logo_url() ); ?>" placeholder="https://..." />
+							<button type="button" class="button dc25-media-picker" data-target="dc25_gv_pdf_logo_url"><?php esc_html_e( 'Choisir dans la bibliothèque', 'dc25-vouchers' ); ?></button>
+						</td>
+					</tr>
+					<tr>
+						<th><label for="dc25_gv_pdf_layout_preset"><?php esc_html_e( 'Preset', 'dc25-vouchers' ); ?></label></th>
+						<td>
+							<select name="dc25_gv_pdf_layout_preset" id="dc25_gv_pdf_layout_preset">
+								<option value="classic" <?php selected( $settings->get_pdf_layout_preset(), 'classic' ); ?>><?php esc_html_e( 'Classique', 'dc25-vouchers' ); ?></option>
+								<option value="bordered" <?php selected( $settings->get_pdf_layout_preset(), 'bordered' ); ?>><?php esc_html_e( 'Encadré', 'dc25-vouchers' ); ?></option>
+								<option value="photo" <?php selected( $settings->get_pdf_layout_preset(), 'photo' ); ?>><?php esc_html_e( 'Carte photo', 'dc25-vouchers' ); ?></option>
+							</select>
+						</td>
+					</tr>
+					<tr>
+						<th><label for="dc25_gv_pdf_font_family"><?php esc_html_e( 'Police', 'dc25-vouchers' ); ?></label></th>
+						<td>
+							<select name="dc25_gv_pdf_font_family" id="dc25_gv_pdf_font_family">
+								<option value="sans" <?php selected( $settings->get_pdf_font_family(), 'sans' ); ?>><?php esc_html_e( 'Sans-serif moderne', 'dc25-vouchers' ); ?></option>
+								<option value="serif" <?php selected( $settings->get_pdf_font_family(), 'serif' ); ?>><?php esc_html_e( 'Serif élégant', 'dc25-vouchers' ); ?></option>
+							</select>
+						</td>
+					</tr>
+					<tr>
+						<th><?php esc_html_e( 'Couleurs', 'dc25-vouchers' ); ?></th>
+						<td>
+							<label><?php esc_html_e( 'Principale', 'dc25-vouchers' ); ?> <input type="color" name="dc25_gv_pdf_theme_color" value="<?php echo esc_attr( $settings->get_theme_color() ); ?>" /></label>
+							<label style="margin-left:12px;"><?php esc_html_e( 'Accent', 'dc25-vouchers' ); ?> <input type="color" name="dc25_gv_pdf_accent_color" value="<?php echo esc_attr( $settings->get_accent_color() ); ?>" /></label>
+							<label style="margin-left:12px;"><?php esc_html_e( 'Texte', 'dc25-vouchers' ); ?> <input type="color" name="dc25_gv_pdf_text_color" value="<?php echo esc_attr( $settings->get_text_color() ); ?>" /></label>
+						</td>
+					</tr>
+					<tr>
+						<th><label for="dc25_gv_pdf_title_text"><?php esc_html_e( 'Titre', 'dc25-vouchers' ); ?></label></th>
+						<td><input type="text" id="dc25_gv_pdf_title_text" name="dc25_gv_pdf_title_text" class="regular-text" value="<?php echo esc_attr( $settings->get_pdf_title_text() ); ?>" /></td>
+					</tr>
+					<tr>
+						<th><label for="dc25_gv_pdf_subtitle_text"><?php esc_html_e( 'Sous-titre', 'dc25-vouchers' ); ?></label></th>
+						<td><input type="text" id="dc25_gv_pdf_subtitle_text" name="dc25_gv_pdf_subtitle_text" class="regular-text" value="<?php echo esc_attr( $settings->get_pdf_subtitle_text() ); ?>" /></td>
+					</tr>
+					<tr>
+						<th><label for="dc25_gv_pdf_footer_text"><?php esc_html_e( 'Pied de page', 'dc25-vouchers' ); ?></label></th>
+						<td><input type="text" id="dc25_gv_pdf_footer_text" name="dc25_gv_pdf_footer_text" class="regular-text" value="<?php echo esc_attr( $settings->get_pdf_footer_text() ); ?>" /></td>
+					</tr>
+				</table>
+				<p>
+					<button class="button button-primary" type="submit"><?php esc_html_e( 'Enregistrer l’apparence', 'dc25-vouchers' ); ?></button>
+					<a class="button" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=dc25_preview_pdf' ), 'dc25_preview_pdf' ) ); ?>" target="_blank"><?php esc_html_e( 'Ouvrir un aperçu PDF', 'dc25-vouchers' ); ?></a>
+				</p>
+				<p class="description"><?php esc_html_e( 'L’aperçu utilise des données fictives et n’affecte pas les vouchers existants.', 'dc25-vouchers' ); ?></p>
+			</form>
+			<script>
+			jQuery(function($){
+				$('.dc25-media-picker').on('click', function(e){
+					e.preventDefault();
+					var target = $(this).data('target');
+					var frame = wp.media({
+						title: '<?php echo esc_js( __( 'Sélectionner un média', 'dc25-vouchers' ) ); ?>',
+						button: { text: '<?php echo esc_js( __( 'Utiliser ce fichier', 'dc25-vouchers' ) ); ?>' },
+						multiple: false
+					});
+					frame.on('select', function(){
+						var attachment = frame.state().get('selection').first().toJSON();
+						$('#' + target).val(attachment.url);
+					});
+					frame.open();
+				});
+			});
+			</script>
+		</div>
 		<?php
 	}
 
@@ -507,6 +630,7 @@ class DC25_Vouchers_Admin {
 			'expiry_date'    => $expiry_date,
 			'message'        => $item->get_meta( '_dc25_gv_message' ),
 			'recipient_name' => $item->get_meta( '_dc25_gv_recipient_name' ),
+			'from_name'      => trim( $order->get_formatted_billing_full_name() ),
 		];
 
 		$pdf_content = DC25_PDF_Service::generate_pdf_content( $pdf_data );
@@ -615,6 +739,72 @@ class DC25_Vouchers_Admin {
 
 		// Rediriger avec un message de succès
 		wp_safe_redirect( admin_url( 'admin.php?page=dc25-vouchers&message=coupon_generated&code=' . urlencode( $coupon_code ) ) );
+		exit;
+	}
+
+	/**
+	 * Sauvegarder les réglages d'apparence depuis l'onglet d'aperçu
+	 */
+	public function handle_save_pdf_preview(): void {
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_die( __( 'Vous n\'avez pas les permissions nécessaires.', 'dc25-vouchers' ) );
+		}
+
+		check_admin_referer( 'dc25_save_pdf_preview' );
+
+		$map = [
+			'dc25_gv_pdf_background_url' => 'esc_url_raw',
+			'dc25_gv_pdf_logo_url'       => 'esc_url_raw',
+			'dc25_gv_pdf_title_text'     => 'sanitize_text_field',
+			'dc25_gv_pdf_subtitle_text'  => 'sanitize_text_field',
+			'dc25_gv_pdf_footer_text'    => 'sanitize_text_field',
+			'dc25_gv_pdf_theme_color'    => 'sanitize_hex_color',
+			'dc25_gv_pdf_accent_color'   => 'sanitize_hex_color',
+			'dc25_gv_pdf_text_color'     => 'sanitize_hex_color',
+			'dc25_gv_pdf_layout_preset'  => 'sanitize_text_field',
+			'dc25_gv_pdf_font_family'    => 'sanitize_text_field',
+		];
+
+		foreach ( $map as $field => $callback ) {
+			if ( isset( $_POST[ $field ] ) ) {
+				$value = call_user_func( $callback, wp_unslash( $_POST[ $field ] ) );
+				update_option( $field, $value );
+			}
+		}
+
+		wp_safe_redirect( admin_url( 'admin.php?page=dc25-vouchers&tab=pdf-preview&message=appearance_saved' ) );
+		exit;
+	}
+
+	/**
+	 * Générer un PDF d'aperçu statique
+	 */
+	public function handle_preview_pdf(): void {
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_die( __( 'Vous n\'avez pas les permissions nécessaires.', 'dc25-vouchers' ) );
+		}
+
+		check_admin_referer( 'dc25_preview_pdf' );
+
+		$sample_data = [
+			'coupon_code'    => 'NVT-APERCU-001',
+			'amount'         => 120,
+			'expiry_date'    => gmdate( 'Y-m-d', strtotime( '+12 months' ) ),
+			'message'        => __( 'Offert avec plaisir pour célébrer cette occasion.', 'dc25-vouchers' ),
+			'recipient_name' => __( 'Invité(e)', 'dc25-vouchers' ),
+			'from_name'      => __( 'Offrant', 'dc25-vouchers' ),
+		];
+
+		$pdf_content = DC25_PDF_Service::generate_pdf_content( $sample_data, true );
+
+		if ( is_wp_error( $pdf_content ) ) {
+			wp_die( sprintf( __( 'Erreur lors de la génération du PDF: %s', 'dc25-vouchers' ), $pdf_content->get_error_message() ) );
+		}
+
+		header( 'Content-Type: application/pdf' );
+		header( 'Content-Disposition: inline; filename="aperçu-bon-cadeau.pdf"' );
+		header( 'Content-Length: ' . strlen( $pdf_content ) );
+		echo $pdf_content;
 		exit;
 	}
 }

@@ -82,7 +82,7 @@ if ( class_exists( 'WC_Product' ) && ! class_exists( 'WC_Product_Gift_Voucher' )
 		 * @return float
 		 */
 		public function get_default_amount(): float {
-			return (float) $this->get_meta( '_dc25_gv_default_amount' ) ?: 100.0;
+			return (float) $this->get_meta( '_dc25_gv_default_amount' ) ?: 20.0;
 		}
 
 		/**
@@ -171,7 +171,7 @@ class DC25_Gift_Product_Type {
 		add_action( 'woocommerce_process_product_meta', [ $this, 'set_default_price' ], 30 );
 
 		// 11. Afficher le prix dynamique sur la page produit
-		add_filter( 'woocommerce_get_price_html', [ $this, 'display_dynamic_price' ], 10, 2 );
+		// add_filter( 'woocommerce_get_price_html', [ $this, 'display_dynamic_price' ], 10, 2 );
 		
 		// 12. Forcer l'affichage du formulaire d'ajout au panier
 		add_action( 'woocommerce_single_product_summary', [ $this, 'force_add_to_cart_form' ], 29 );
@@ -319,14 +319,14 @@ class DC25_Gift_Product_Type {
 				woocommerce_wp_text_input( [
 					'id'                => '_dc25_gv_default_amount',
 					'label'             => __( 'Montant par défaut (CHF)', 'dc25-vouchers' ),
-					'placeholder'       => '100',
+					'placeholder'       => '20',
 					'description'       => __( 'Montant suggéré dans le formulaire de commande. Le client peut le modifier.', 'dc25-vouchers' ),
 					'type'              => 'number',
 					'custom_attributes' => [
 						'step' => '0.01',
 						'min'  => '0',
 					],
-					'value'             => $product ? ( $product->get_meta( '_dc25_gv_default_amount' ) ?: '100' ) : '100',
+					'value'             => $product ? ( $product->get_meta( '_dc25_gv_default_amount' ) ?: '20' ) : '20',
 				] );
 				?>
 			</div>
@@ -390,9 +390,9 @@ class DC25_Gift_Product_Type {
 		woocommerce_wp_text_input( [
 			'id'          => '_dc25_gv_coupon_prefix',
 			'label'       => __( 'Préfixe coupon', 'dc25-vouchers' ),
-			'placeholder' => 'GV-',
+			'placeholder' => 'NVT-',
 			'description' => __( 'Préfixe pour les codes de coupon générés.', 'dc25-vouchers' ),
-			'value'       => $product->get_meta( '_dc25_gv_coupon_prefix' ) ?: 'GV-',
+			'value'       => $product->get_meta( '_dc25_gv_coupon_prefix' ) ?: 'NVT-',
 		] );
 
 		// Option envoi physique
@@ -608,14 +608,14 @@ class DC25_Gift_Product_Type {
 			?>
 			<style type="text/css">
 			/* Masquer les onglets non pertinents pour gift_voucher dès le chargement */
-			.product_data_tabs li.shipping_tab,
 			.product_data_tabs li.linked_product_tab,
 			.product_data_tabs li.attribute_tab,
 			.product_data_tabs li.advanced_tab {
 				display: none !important;
 			}
-			/* S'assurer que l'onglet Inventaire est visible pour gift_voucher */
-			.product_data_tabs li.inventory_tab.show_if_gift_voucher {
+			/* S'assurer que l'onglet Inventaire et Shipping sont visibles pour gift_voucher */
+			.product_data_tabs li.inventory_tab.show_if_gift_voucher,
+			.product_data_tabs li.shipping_tab.show_if_gift_voucher {
 				display: block !important;
 			}
 			/* Masquer les champs de prix et TVA standard pour gift_voucher */
@@ -698,9 +698,9 @@ class DC25_Gift_Product_Type {
 					// Ajouter la classe show_if_gift_voucher aux onglets que nous voulons afficher
 					$('.product_data_tabs .general_tab').addClass('show_if_gift_voucher');
 					$('.product_data_tabs .inventory_tab').addClass('show_if_gift_voucher');
+					$('.product_data_tabs .shipping_tab').addClass('show_if_gift_voucher');
 					
 					// Masquer les onglets non pertinents pour gift_voucher
-					$('.product_data_tabs .shipping_tab').hide();
 					$('.product_data_tabs .linked_product_tab').hide();
 					$('.product_data_tabs .attribute_tab').hide();
 					$('.product_data_tabs .advanced_tab').hide();

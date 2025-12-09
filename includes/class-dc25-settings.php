@@ -83,7 +83,7 @@ class DC25_Settings {
 	 * @return string
 	 */
 	public function get_coupon_prefix(): string {
-		return $this->get_option( 'coupon_prefix', 'GV-' );
+		return $this->get_option( 'coupon_prefix', 'NVT-' );
 	}
 
 	/**
@@ -111,6 +111,20 @@ class DC25_Settings {
 	 */
 	public function get_theme_color(): string {
 		return $this->get_option( 'pdf_theme_color', '#000000' );
+	}
+
+	/**
+	 * Obtenir la couleur d'accent du PDF
+	 */
+	public function get_accent_color(): string {
+		return $this->get_option( 'pdf_accent_color', '#c49b3f' );
+	}
+
+	/**
+	 * Obtenir la couleur de texte du PDF
+	 */
+	public function get_text_color(): string {
+		return $this->get_option( 'pdf_text_color', '#111111' );
 	}
 
 	/**
@@ -169,6 +183,108 @@ class DC25_Settings {
 	public function get_pdf_orientation(): string {
 		return $this->get_option( 'pdf_orientation', 'landscape' );
 	}
+
+	/**
+	 * Obtenir le fond du PDF
+	 */
+	public function get_pdf_background_url(): string {
+		return $this->get_option( 'pdf_background_url', '' );
+	}
+
+	/**
+	 * Obtenir la famille de police
+	 */
+	public function get_pdf_font_family(): string {
+		return $this->get_option( 'pdf_font_family', 'sans' );
+	}
+
+	/**
+	 * Obtenir le preset de mise en page
+	 */
+	public function get_pdf_layout_preset(): string {
+		return $this->get_option( 'pdf_layout_preset', 'classic' );
+	}
+
+	/**
+	 * Obtenir le titre du PDF
+	 */
+	public function get_pdf_title_text(): string {
+		return $this->get_option( 'pdf_title_text', __( 'Bon cadeau', 'dc25-vouchers' ) );
+	}
+
+	/**
+	 * Obtenir le sous-titre du PDF
+	 */
+	public function get_pdf_subtitle_text(): string {
+		return $this->get_option( 'pdf_subtitle_text', __( 'Pour célébrer une occasion spéciale', 'dc25-vouchers' ) );
+	}
+
+	/**
+	 * Obtenir le texte de pied de page
+	 */
+	public function get_pdf_footer_text(): string {
+		return $this->get_option( 'pdf_footer_text', __( 'Présentez ce bon lors de votre visite pour le valider.', 'dc25-vouchers' ) );
+	}
+
+	public function get_pdf_from_label(): string {
+		return $this->get_option( 'pdf_from_label', __( 'De la part de', 'dc25-vouchers' ) );
+	}
+
+	public function get_pdf_for_label(): string {
+		return $this->get_option( 'pdf_for_label', __( 'à', 'dc25-vouchers' ) );
+	}
+
+	public function get_pdf_back_title(): string {
+		return $this->get_option( 'pdf_back_title', __( 'Comment utiliser ce bon?', 'dc25-vouchers' ) );
+	}
+
+	public function get_pdf_back_partner_title(): string {
+		return $this->get_option( 'pdf_back_partner_title', __( 'Chez nos partenaires', 'dc25-vouchers' ) );
+	}
+
+	public function get_pdf_back_partner_body(): string {
+		return $this->get_option( 'pdf_back_partner_body', __( 'Ce bon est valable chez tous les encaveurs, producteurs et partenaires NVT.', 'dc25-vouchers' ) );
+	}
+
+	public function get_pdf_back_partner_link_label(): string {
+		return $this->get_option( 'pdf_back_partner_link_label', 'neuchatel-vins-terroir.ch/bon-cadeau-du-terroir/' );
+	}
+
+	public function get_pdf_back_partner_link_url(): string {
+		return $this->get_option( 'pdf_back_partner_link_url', 'https://neuchatel-vins-terroir.ch/bon-cadeau-du-terroir/' );
+	}
+
+	public function get_pdf_back_online_title(): string {
+		return $this->get_option( 'pdf_back_online_title', __( 'En ligne', 'dc25-vouchers' ) );
+	}
+
+	public function get_pdf_back_online_body(): string {
+		return $this->get_option( 'pdf_back_online_body', __( 'Sur notre site', 'dc25-vouchers' ) );
+	}
+
+	public function get_pdf_back_online_link_label(): string {
+		return $this->get_option( 'pdf_back_online_link_label', 'neuchatel-vins-terroir.ch' );
+	}
+
+	public function get_pdf_back_online_link_url(): string {
+		return $this->get_option( 'pdf_back_online_link_url', 'https://neuchatel-vins-terroir.ch' );
+	}
+
+	public function get_pdf_back_online_code_label(): string {
+		return $this->get_option( 'pdf_back_online_code_label', __( 'Avec le code', 'dc25-vouchers' ) );
+	}
+
+	public function get_pdf_back_validity_notice(): string {
+		return $this->get_option( 'pdf_back_validity_notice', __( 'Valable 12 mois dès la date d\'émission, non cumulable avec d’autres bons. Ne peut être échangé contre espèces.', 'dc25-vouchers' ) );
+	}
+
+	public function get_pdf_back_banner_title(): string {
+		return $this->get_option( 'pdf_back_banner_title', __( 'Partenaire', 'dc25-vouchers' ) );
+	}
+
+	public function get_pdf_back_banner_text(): string {
+		return $this->get_option( 'pdf_back_banner_text', __( 'Scanner ce QR code afin de valider l’utilisation du bon et transmettre le ticket pour remboursement', 'dc25-vouchers' ) );
+	}
 }
 
 /**
@@ -207,7 +323,7 @@ if ( class_exists( 'WC_Settings_Page' ) ) {
 				'title'    => __( 'Préfixe coupon par défaut', 'dc25-vouchers' ),
 				'desc'     => __( 'Préfixe utilisé pour les codes de coupon générés.', 'dc25-vouchers' ),
 				'id'       => 'dc25_gv_coupon_prefix',
-				'default'  => 'GV-',
+				'default'  => 'NVT-',
 				'type'     => 'text',
 			],
 			[
@@ -245,6 +361,19 @@ if ( class_exists( 'WC_Settings_Page' ) ) {
 				'default'  => '#000000',
 			],
 			[
+				'title'    => __( 'Couleur d\'accent', 'dc25-vouchers' ),
+				'desc'     => __( 'Utilisée pour les séparateurs/boutons.', 'dc25-vouchers' ),
+				'id'       => 'dc25_gv_pdf_accent_color',
+				'type'     => 'color',
+				'default'  => '#c49b3f',
+			],
+			[
+				'title'    => __( 'Couleur du texte', 'dc25-vouchers' ),
+				'id'       => 'dc25_gv_pdf_text_color',
+				'type'     => 'color',
+				'default'  => '#111111',
+			],
+			[
 				'title'    => __( 'Taille de papier', 'dc25-vouchers' ),
 				'desc'     => __( 'Taille de papier pour le PDF.', 'dc25-vouchers' ),
 				'id'       => 'dc25_gv_pdf_paper_size',
@@ -268,12 +397,166 @@ if ( class_exists( 'WC_Settings_Page' ) ) {
 				],
 			],
 			[
+				'title'    => __( 'Fond (URL ou image)', 'dc25-vouchers' ),
+				'desc'     => __( 'URL d\'une image de fond pleine page.', 'dc25-vouchers' ),
+				'id'       => 'dc25_gv_pdf_background_url',
+				'type'     => 'text',
+				'default'  => '',
+			],
+			[
+				'title'    => __( 'Police', 'dc25-vouchers' ),
+				'id'       => 'dc25_gv_pdf_font_family',
+				'type'     => 'select',
+				'default'  => 'sans',
+				'options'  => [
+					'sans'  => __( 'Sans-serif moderne', 'dc25-vouchers' ),
+					'serif' => __( 'Serif élégant', 'dc25-vouchers' ),
+				],
+			],
+			[
+				'title'    => __( 'Preset de mise en page', 'dc25-vouchers' ),
+				'id'       => 'dc25_gv_pdf_layout_preset',
+				'type'     => 'select',
+				'default'  => 'classic',
+				'options'  => [
+					'classic'  => __( 'Classique', 'dc25-vouchers' ),
+					'bordered' => __( 'Encadré', 'dc25-vouchers' ),
+					'photo'    => __( 'Carte photo', 'dc25-vouchers' ),
+				],
+			],
+			[
+				'title'    => __( 'Titre', 'dc25-vouchers' ),
+				'id'       => 'dc25_gv_pdf_title_text',
+				'type'     => 'text',
+				'default'  => __( 'Bon cadeau', 'dc25-vouchers' ),
+			],
+			[
+				'title'    => __( 'Sous-titre', 'dc25-vouchers' ),
+				'id'       => 'dc25_gv_pdf_subtitle_text',
+				'type'     => 'text',
+				'default'  => __( 'Pour célébrer une occasion spéciale', 'dc25-vouchers' ),
+			],
+			[
 				'title'    => __( 'Texte conditions', 'dc25-vouchers' ),
 				'desc'     => __( 'Texte des conditions générales affiché sur le PDF.', 'dc25-vouchers' ),
 				'id'       => 'dc25_gv_conditions_text',
 				'type'     => 'textarea',
 				'default'  => __( 'Ce bon cadeau est valable une seule fois et non remboursable.', 'dc25-vouchers' ),
 				'css'      => 'min-height: 100px;',
+			],
+			[
+				'title'    => __( 'Pied de page', 'dc25-vouchers' ),
+				'id'       => 'dc25_gv_pdf_footer_text',
+				'type'     => 'text',
+				'default'  => __( 'Présentez ce bon lors de votre visite pour le valider.', 'dc25-vouchers' ),
+			],
+			[
+				'title' => __( 'Libellés face avant', 'dc25-vouchers' ),
+				'type'  => 'title',
+				'id'    => 'dc25_gv_pdf_front_labels',
+			],
+			[
+				'title'   => __( 'Libellé expéditeur', 'dc25-vouchers' ),
+				'id'      => 'dc25_gv_pdf_from_label',
+				'type'    => 'text',
+				'default' => __( 'De la part de', 'dc25-vouchers' ),
+			],
+			[
+				'title'   => __( 'Libellé destinataire', 'dc25-vouchers' ),
+				'id'      => 'dc25_gv_pdf_for_label',
+				'type'    => 'text',
+				'default' => __( 'à', 'dc25-vouchers' ),
+			],
+			[
+				'type' => 'sectionend',
+				'id'   => 'dc25_gv_pdf_front_labels',
+			],
+			[
+				'title' => __( 'Face arrière', 'dc25-vouchers' ),
+				'type'  => 'title',
+				'id'    => 'dc25_gv_pdf_back',
+			],
+			[
+				'title'   => __( 'Titre', 'dc25-vouchers' ),
+				'id'      => 'dc25_gv_pdf_back_title',
+				'type'    => 'text',
+				'default' => __( 'Comment utiliser ce bon?', 'dc25-vouchers' ),
+			],
+			[
+				'title'   => __( 'Bloc partenaires - titre', 'dc25-vouchers' ),
+				'id'      => 'dc25_gv_pdf_back_partner_title',
+				'type'    => 'text',
+				'default' => __( 'Chez nos partenaires', 'dc25-vouchers' ),
+			],
+			[
+				'title'   => __( 'Bloc partenaires - texte', 'dc25-vouchers' ),
+				'id'      => 'dc25_gv_pdf_back_partner_body',
+				'type'    => 'textarea',
+				'default' => __( 'Ce bon est valable chez tous les encaveurs, producteurs et partenaires NVT.', 'dc25-vouchers' ),
+			],
+			[
+				'title'   => __( 'Bloc partenaires - lien (libellé)', 'dc25-vouchers' ),
+				'id'      => 'dc25_gv_pdf_back_partner_link_label',
+				'type'    => 'text',
+				'default' => 'neuchatel-vins-terroir.ch/bon-cadeau-du-terroir/',
+			],
+			[
+				'title'   => __( 'Bloc partenaires - lien (URL)', 'dc25-vouchers' ),
+				'id'      => 'dc25_gv_pdf_back_partner_link_url',
+				'type'    => 'text',
+				'default' => 'https://neuchatel-vins-terroir.ch/bon-cadeau-du-terroir/',
+			],
+			[
+				'title'   => __( 'Bloc en ligne - titre', 'dc25-vouchers' ),
+				'id'      => 'dc25_gv_pdf_back_online_title',
+				'type'    => 'text',
+				'default' => __( 'En ligne', 'dc25-vouchers' ),
+			],
+			[
+				'title'   => __( 'Bloc en ligne - texte', 'dc25-vouchers' ),
+				'id'      => 'dc25_gv_pdf_back_online_body',
+				'type'    => 'textarea',
+				'default' => __( 'Sur notre site', 'dc25-vouchers' ),
+			],
+			[
+				'title'   => __( 'Bloc en ligne - lien (libellé)', 'dc25-vouchers' ),
+				'id'      => 'dc25_gv_pdf_back_online_link_label',
+				'type'    => 'text',
+				'default' => 'neuchatel-vins-terroir.ch',
+			],
+			[
+				'title'   => __( 'Bloc en ligne - lien (URL)', 'dc25-vouchers' ),
+				'id'      => 'dc25_gv_pdf_back_online_link_url',
+				'type'    => 'text',
+				'default' => 'https://neuchatel-vins-terroir.ch',
+			],
+			[
+				'title'   => __( 'Bloc en ligne - libellé code', 'dc25-vouchers' ),
+				'id'      => 'dc25_gv_pdf_back_online_code_label',
+				'type'    => 'text',
+				'default' => __( 'Avec le code', 'dc25-vouchers' ),
+			],
+			[
+				'title'   => __( 'Mention de validité', 'dc25-vouchers' ),
+				'id'      => 'dc25_gv_pdf_back_validity_notice',
+				'type'    => 'text',
+				'default' => __( 'Valable 12 mois dès la date d\'émission, non cumulable avec d’autres bons. Ne peut être échangé contre espèces.', 'dc25-vouchers' ),
+			],
+			[
+				'title'   => __( 'Bandeau QR - titre', 'dc25-vouchers' ),
+				'id'      => 'dc25_gv_pdf_back_banner_title',
+				'type'    => 'text',
+				'default' => __( 'Partenaire', 'dc25-vouchers' ),
+			],
+			[
+				'title'   => __( 'Bandeau QR - texte', 'dc25-vouchers' ),
+				'id'      => 'dc25_gv_pdf_back_banner_text',
+				'type'    => 'textarea',
+				'default' => __( 'Scanner ce QR code afin de valider l’utilisation du bon et transmettre le ticket pour remboursement', 'dc25-vouchers' ),
+			],
+			[
+				'type' => 'sectionend',
+				'id'   => 'dc25_gv_pdf_back',
 			],
 			[
 				'type' => 'sectionend',
