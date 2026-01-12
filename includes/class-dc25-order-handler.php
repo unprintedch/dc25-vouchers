@@ -343,6 +343,29 @@ class DC25_Order_Handler {
 			$item->update_meta_data( '_dc25_gv_coupon_code', $coupon_code );
 			$item->save();
 
+			// Récupérer la langue de la commande pour le PDF
+			$order_language = dc25_get_order_language( $order );
+			
+			// Obtenir la locale correspondante à la langue
+			$locale_to_switch = null;
+			if ( function_exists( 'wpml_get_language_locale' ) ) {
+				$locale_to_switch = wpml_get_language_locale( $order_language );
+			} elseif ( function_exists( 'icl_get_language_locale' ) ) {
+				$locale_to_switch = icl_get_language_locale( $order_language );
+			}
+			
+			// Si pas de locale trouvée, utiliser la locale par défaut de la langue
+			if ( empty( $locale_to_switch ) ) {
+				// Mapping simple des langues courantes
+				$locale_map = [
+					'fr' => 'fr_FR',
+					'de' => 'de_DE',
+					'en' => 'en_US',
+					'it' => 'it_IT',
+				];
+				$locale_to_switch = $locale_map[ $order_language ] ?? get_locale();
+			}
+
 			// Générer le PDF
 			$pdf_data = [
 				'coupon_code'    => $coupon_code,
@@ -350,7 +373,14 @@ class DC25_Order_Handler {
 				'expiry_date'    => $expiry_date,
 				'message'        => $item->get_meta( '_dc25_gv_message' ),
 				'recipient_name' => $item->get_meta( '_dc25_gv_recipient_name' ),
+				'from_name'      => $item->get_meta( '_dc25_gv_from_name' ) ?: trim( $order->get_formatted_billing_full_name() ),
 			];
+
+			// Changer temporairement la locale pour générer le PDF dans la bonne langue
+			$previous_locale = null;
+			if ( function_exists( 'switch_to_locale' ) && ! empty( $locale_to_switch ) ) {
+				$previous_locale = switch_to_locale( $locale_to_switch );
+			}
 
 			try {
 				$pdf_content = DC25_PDF_Service::generate_pdf_content( $pdf_data );
@@ -373,6 +403,13 @@ class DC25_Order_Handler {
 					);
 				}
 				$pdf_content = null;
+			} finally {
+				// Restaurer la locale précédente
+				if ( $previous_locale !== null && function_exists( 'restore_previous_locale' ) ) {
+					restore_previous_locale();
+				} elseif ( function_exists( 'restore_current_locale' ) ) {
+					restore_current_locale();
+				}
 			}
 
 			// Envoyer les emails
@@ -427,6 +464,9 @@ class DC25_Order_Handler {
 	private function send_voucher_emails( $order, $item, ?string $pdf_content ): void {
 		$settings = DC25_Settings::get_instance();
 
+		// Récupérer la langue de la commande
+		$order_language = dc25_get_order_language( $order );
+
 		// Email à l'acheteur
 		$buyer_email = $order->get_billing_email();
 		$buyer_name = $order->get_billing_first_name() . ' ' . $order->get_billing_last_name();
@@ -444,12 +484,12 @@ class DC25_Order_Handler {
 			'recipient_name' => $recipient_name,
 		];
 
-		// Envoyer à l'acheteur
-		$this->send_email( $buyer_email, $buyer_name, $email_data, $pdf_content, false );
+		// Envoyer à l'acheteur avec la langue de la commande
+		$this->send_email( $buyer_email, $buyer_name, $email_data, $pdf_content, false, $order_language );
 
 		// Envoyer au destinataire si activé et renseigné
 		if ( $settings->is_recipient_email_enabled() && ! empty( $recipient_email ) ) {
-			$this->send_email( $recipient_email, $recipient_name ?: __( 'Destinataire', 'dc25-vouchers' ), $email_data, $pdf_content, true );
+			$this->send_email( $recipient_email, $recipient_name ?: __( 'Destinataire', 'dc25-vouchers' ), $email_data, $pdf_content, true, $order_language );
 		}
 	}
 
@@ -461,17 +501,15 @@ class DC25_Order_Handler {
 	 * @param array       $data Données du bon.
 	 * @param string|null $pdf_content Contenu du PDF.
 	 * @param bool        $is_recipient Si c'est le destinataire.
+	 * @param string|null $language Code de langue pour l'email (ex: 'fr', 'de').
 	 */
-	private function send_email( string $to, string $name, array $data, ?string $pdf_content, bool $is_recipient ): void {
+	private function send_email( string $to, string $name, array $data, ?string $pdf_content, bool $is_recipient, ?string $language = null ): void {
 		$settings = DC25_Settings::get_instance();
 
-		$subject = $is_recipient
-			? $settings->get_recipient_email_subject()
-			: __( 'Votre bon cadeau', 'dc25-vouchers' );
-
-		$message = $is_recipient
-			? $settings->get_recipient_email_content()
-			: $this->get_buyer_email_content( $data );
+		// Utiliser le contenu configuré même pour l'acheteur (le mail destinataire a été désactivé).
+		// Passer la langue de la commande pour récupérer le bon contenu traduit
+		$subject = $settings->get_recipient_email_subject( $language );
+		$message = $settings->get_recipient_email_content( $language );
 
 		// Générer le lien de téléchargement
 		$download_url = add_query_arg( 'dc25_gv_download', $data['coupon_code'], home_url() );
@@ -481,7 +519,7 @@ class DC25_Order_Handler {
 			'{name}'         => $name,
 			'{coupon_code}'  => $data['coupon_code'],
 			'{amount}'       => wc_price( $data['amount'] ),
-			'{message}'      => $data['message'] ?? '',
+			'{message}'      => nl2br( esc_html( $data['message'] ?? '' ) ),
 			'{site_name}'    => get_bloginfo( 'name' ),
 			'{download_link}' => '<a href="' . esc_url( $download_url ) . '" style="display: inline-block; padding: 12px 24px; background-color: #0073aa; color: #fff; text-decoration: none; border-radius: 4px; font-weight: bold;">' . esc_html__( 'Télécharger le PDF', 'dc25-vouchers' ) . '</a>',
 			'{download_url}' => esc_url( $download_url ),
@@ -491,6 +529,9 @@ class DC25_Order_Handler {
 			$message = str_replace( $placeholder, $value, $message );
 			$subject = str_replace( $placeholder, $value, $subject );
 		}
+
+		// Mise en forme en paragraphes pour éviter un affichage sur une seule ligne
+		$message = wpautop( $message );
 
 		$headers = [
 			'Content-Type: text/html; charset=UTF-8',
@@ -639,13 +680,51 @@ class DC25_Order_Handler {
 				'recipient_name' => $item->get_meta( '_dc25_gv_recipient_name' ),
 			];
 
-			$pdf_content = DC25_PDF_Service::generate_pdf_content( $pdf_data );
-			if ( ! is_wp_error( $pdf_content ) && ! empty( $pdf_content ) ) {
-				// Créer un fichier temporaire pour l'attachement
-				$temp_file = wp_tempnam( 'voucher-' . $coupon_code . '.pdf' );
-				if ( $temp_file ) {
-					file_put_contents( $temp_file, $pdf_content );
-					$attachments[] = $temp_file;
+			// Récupérer la langue de la commande pour le PDF
+			$order_language = dc25_get_order_language( $order );
+			
+			// Obtenir la locale correspondante à la langue
+			$locale_to_switch = null;
+			if ( function_exists( 'wpml_get_language_locale' ) ) {
+				$locale_to_switch = wpml_get_language_locale( $order_language );
+			} elseif ( function_exists( 'icl_get_language_locale' ) ) {
+				$locale_to_switch = icl_get_language_locale( $order_language );
+			}
+			
+			// Si pas de locale trouvée, utiliser la locale par défaut de la langue
+			if ( empty( $locale_to_switch ) ) {
+				// Mapping simple des langues courantes
+				$locale_map = [
+					'fr' => 'fr_FR',
+					'de' => 'de_DE',
+					'en' => 'en_US',
+					'it' => 'it_IT',
+				];
+				$locale_to_switch = $locale_map[ $order_language ] ?? get_locale();
+			}
+
+			// Changer temporairement la locale pour générer le PDF dans la bonne langue
+			$previous_locale = null;
+			if ( function_exists( 'switch_to_locale' ) && ! empty( $locale_to_switch ) ) {
+				$previous_locale = switch_to_locale( $locale_to_switch );
+			}
+
+			try {
+				$pdf_content = DC25_PDF_Service::generate_pdf_content( $pdf_data );
+				if ( ! is_wp_error( $pdf_content ) && ! empty( $pdf_content ) ) {
+					// Créer un fichier temporaire pour l'attachement
+					$temp_file = wp_tempnam( 'voucher-' . $coupon_code . '.pdf' );
+					if ( $temp_file ) {
+						file_put_contents( $temp_file, $pdf_content );
+						$attachments[] = $temp_file;
+					}
+				}
+			} finally {
+				// Restaurer la locale précédente
+				if ( $previous_locale !== null && function_exists( 'restore_previous_locale' ) ) {
+					restore_previous_locale();
+				} elseif ( function_exists( 'restore_current_locale' ) ) {
+					restore_current_locale();
 				}
 			}
 		}

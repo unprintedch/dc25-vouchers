@@ -50,15 +50,75 @@
 }
 
 .dc25-details-content {
-	padding: 20px;
+	padding: 16px 20px;
 }
 
 .dc25-details-content h3 {
 	margin-top: 0;
+	margin-bottom: 16px;
+	font-size: 15px;
+	font-weight: 600;
+	color: #1d2327;
+	border-bottom: 1px solid #dcdcde;
+	padding-bottom: 8px;
 }
 
-.dc25-details-content .form-table th {
-	width: 200px;
+.dc25-details-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+	gap: 12px 24px;
+}
+
+.dc25-detail-item {
+	display: flex;
+	flex-direction: row;
+	align-items: flex-start;
+	gap: 16px;
+	min-height: 24px;
+}
+
+.dc25-detail-label {
+	font-weight: 700;
+	font-size: 13px;
+	color: #50575e;
+	min-width: 140px;
+	flex-shrink: 0;
+	padding-top: 2px;
+	line-height: 1.5;
+}
+
+.dc25-detail-value {
+	font-size: 13px;
+	color: #1d2327;
+	line-height: 1.5;
+	flex: 1;
+	padding-top: 2px;
+}
+
+.dc25-detail-value code {
+	background: #f0f0f1;
+	padding: 3px 8px;
+	border-radius: 3px;
+	font-size: 12px;
+	font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+}
+
+.dc25-detail-value small {
+	color: #646970;
+	display: block;
+	margin-top: 4px;
+	font-size: 12px;
+	line-height: 1.4;
+}
+
+.dc25-detail-value a {
+	color: #2271b1;
+	text-decoration: none;
+}
+
+.dc25-detail-value a:hover {
+	color: #135e96;
+	text-decoration: underline;
 }
 
 .dc25-view-details {

@@ -27,6 +27,8 @@ class DC25_Verify_Endpoint {
 		add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_scripts' ] );
 		add_action( 'wp_ajax_dc25_redeem_coupon', [ $this, 'handle_ajax_redeem' ] );
 		add_action( 'wp_ajax_nopriv_dc25_redeem_coupon', [ $this, 'handle_ajax_redeem' ] ); // Public endpoint
+		add_action( 'wp_ajax_dc25_search_cpt', [ $this, 'handle_ajax_search_cpt' ] );
+		add_action( 'wp_ajax_nopriv_dc25_search_cpt', [ $this, 'handle_ajax_search_cpt' ] ); // Public endpoint
 	}
 
 	/**
@@ -219,6 +221,7 @@ class DC25_Verify_Endpoint {
 			'expiry_date'    => $expiry_date,
 			'message'        => $item->get_meta( '_dc25_gv_message' ),
 			'recipient_name' => $item->get_meta( '_dc25_gv_recipient_name' ),
+			'from_name'      => $item->get_meta( '_dc25_gv_from_name' ),
 		];
 
 		$pdf_content = DC25_PDF_Service::generate_pdf_content( $pdf_data );
@@ -261,13 +264,41 @@ class DC25_Verify_Endpoint {
 
 		$coupon_code = sanitize_text_field( $verify );
 
+		// Récupérer les CPT autorisés pour la recherche
+		$allowed_post_types = [];
+		if ( class_exists( 'DC25_Settings' ) ) {
+			$settings = DC25_Settings::get_instance();
+			$allowed_post_types = $settings->get_allowed_cpt_for_verification();
+		}
+
+		// Enregistrer Select2 (utiliser la version de WooCommerce si disponible, sinon CDN)
+		if ( class_exists( 'WooCommerce' ) && wp_script_is( 'select2', 'registered' ) ) {
+			wp_enqueue_script( 'select2' );
+			wp_enqueue_style( 'select2' );
+		} else {
+			// Utiliser Select2 depuis CDN
+			wp_enqueue_script(
+				'select2',
+				'https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js',
+				[ 'jquery' ],
+				'4.1.0',
+				true
+			);
+			wp_enqueue_style(
+				'select2',
+				'https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css',
+				[],
+				'4.1.0'
+			);
+		}
+
 		// Enregistrer le script
 		$script_path = DC25_PATH . 'assets/js/redeem-coupon.js';
 		if ( file_exists( $script_path ) ) {
 			wp_enqueue_script(
 				'dc25-redeem-coupon',
 				DC25_URL . 'assets/js/redeem-coupon.js',
-				[ 'jquery' ],
+				[ 'jquery', 'select2' ],
 				filemtime( $script_path ),
 				true
 			);
@@ -280,14 +311,119 @@ class DC25_Verify_Endpoint {
 					'ajax_url' => admin_url( 'admin-ajax.php' ),
 					'nonce' => wp_create_nonce( 'dc25_redeem_ajax_' . $coupon_code ),
 					'coupon_code' => $coupon_code,
+					'allowed_post_types' => $allowed_post_types,
 					'i18n' => [
 						'success' => __( 'Le bon cadeau a été encaissé avec succès.', 'dc25-vouchers' ),
 						'error' => __( 'Une erreur est survenue. Veuillez réessayer.', 'dc25-vouchers' ),
 						'uploading' => __( 'Traitement en cours...', 'dc25-vouchers' ),
+						'select_cpt_placeholder' => __( 'Rechercher un producteur/vigneron...', 'dc25-vouchers' ),
+						'no_results' => __( 'Aucun résultat trouvé', 'dc25-vouchers' ),
+						'searching' => __( 'Recherche en cours...', 'dc25-vouchers' ),
 					],
 				]
 			);
 		}
+
+		// Enregistrer le style pour Select2 sur la page de vérification
+		wp_add_inline_style( 'select2', '
+			.dc25-verify-container .select2-container {
+				width: 100% !important;
+			}
+			.dc25-verify-container .select2-container--default .select2-selection--single {
+				height: auto;
+				padding: 12px;
+				border: 1px solid #ddd;
+				border-radius: 4px;
+			}
+			.dc25-verify-container .select2-container--default .select2-selection--single:focus {
+				border-color: #007bff;
+				box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+			}
+		' );
+	}
+
+	/**
+	 * Gérer la recherche AJAX de CPT pour Select2
+	 */
+	public function handle_ajax_search_cpt(): void {
+		// Vérifier que les settings sont disponibles
+		if ( ! class_exists( 'DC25_Settings' ) ) {
+			wp_send_json_error( [ 'message' => __( 'Service non disponible.', 'dc25-vouchers' ) ] );
+			return;
+		}
+
+		$settings = DC25_Settings::get_instance();
+		$allowed_post_types = $settings->get_allowed_cpt_for_verification();
+
+		if ( empty( $allowed_post_types ) ) {
+			wp_send_json_success( [
+				'results' => [],
+				'pagination' => [ 'more' => false ],
+			] );
+			return;
+		}
+
+		// Récupérer les paramètres de recherche (Select2 envoie via GET ou POST selon la version)
+		$search = '';
+		if ( isset( $_POST['search'] ) ) {
+			$search = sanitize_text_field( wp_unslash( $_POST['search'] ) );
+		} elseif ( isset( $_GET['search'] ) ) {
+			$search = sanitize_text_field( wp_unslash( $_GET['search'] ) );
+		}
+		
+		$page = 1;
+		if ( isset( $_POST['page'] ) ) {
+			$page = absint( $_POST['page'] );
+		} elseif ( isset( $_GET['page'] ) ) {
+			$page = absint( $_GET['page'] );
+		}
+		
+		$posts_per_page = 20;
+
+		// Construire la requête WP_Query
+		$args = [
+			'post_type'      => $allowed_post_types,
+			'post_status'    => 'publish',
+			'posts_per_page' => $posts_per_page,
+			'paged'          => $page,
+			'orderby'        => 'title',
+			'order'          => 'ASC',
+		];
+
+		if ( ! empty( $search ) ) {
+			$args['s'] = $search;
+		}
+
+		$query = new WP_Query( $args );
+
+		// Formater les résultats pour Select2
+		$results = [];
+		if ( $query->have_posts() ) {
+			foreach ( $query->posts as $post ) {
+				$post_type_obj = get_post_type_object( $post->post_type );
+				$post_type_label = $post_type_obj ? $post_type_obj->labels->singular_name : $post->post_type;
+
+				$results[] = [
+					'id'   => $post->ID,
+					'text' => $post->post_title . ' (' . $post_type_label . ')',
+					'data' => [
+						'post_type' => $post->post_type,
+						'post_id'   => $post->ID,
+					],
+				];
+			}
+			wp_reset_postdata();
+		}
+
+		// Calculer s'il y a plus de résultats
+		$has_more = $query->max_num_pages > $page;
+
+		wp_send_json_success( [
+			'results'    => $results,
+			'pagination' => [
+				'more' => $has_more,
+			],
+		] );
 	}
 
 	/**
@@ -377,7 +513,33 @@ class DC25_Verify_Endpoint {
 			}
 		}
 
-		// Sauvegarder les métadonnées
+		// Récupérer le CPT sélectionné (optionnel)
+		$selected_cpt_id = isset( $_POST['dc25_selected_cpt'] ) ? absint( $_POST['dc25_selected_cpt'] ) : 0;
+		$selected_cpt_type = '';
+		if ( $selected_cpt_id > 0 ) {
+			$selected_post = get_post( $selected_cpt_id );
+			if ( $selected_post && 'publish' === $selected_post->post_status ) {
+				$selected_cpt_type = $selected_post->post_type;
+			} else {
+				$selected_cpt_id = 0; // Invalider si le post n'existe pas ou n'est pas publié
+			}
+		}
+
+		// Trouver l'order item associé au coupon pour sauvegarder les métadonnées
+		global $wpdb;
+		$order_item = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT oi.order_id, oi.order_item_id
+				FROM {$wpdb->prefix}woocommerce_order_items oi
+				INNER JOIN {$wpdb->prefix}woocommerce_order_itemmeta oim ON oi.order_item_id = oim.order_item_id
+				WHERE oim.meta_key = %s AND oim.meta_value = %s
+				LIMIT 1",
+				'_dc25_gv_coupon_code',
+				$coupon_code
+			)
+		);
+
+		// Sauvegarder les métadonnées sur le coupon
 		if ( ! empty( $cashier_name ) ) {
 			$coupon->update_meta_data( '_dc25_redeemed_by', $cashier_name );
 		}
@@ -385,6 +547,34 @@ class DC25_Verify_Endpoint {
 		if ( $uploaded_file && isset( $uploaded_file['url'] ) ) {
 			$coupon->update_meta_data( '_dc25_receipt_file', $uploaded_file['url'] );
 			$coupon->update_meta_data( '_dc25_receipt_path', $uploaded_file['file'] );
+		}
+		if ( $selected_cpt_id > 0 && ! empty( $selected_cpt_type ) ) {
+			$coupon->update_meta_data( '_dc25_redeemed_at_cpt_id', $selected_cpt_id );
+			$coupon->update_meta_data( '_dc25_redeemed_at_cpt_type', $selected_cpt_type );
+		}
+
+		// Sauvegarder aussi sur l'order item si trouvé
+		if ( $order_item ) {
+			$order = wc_get_order( $order_item->order_id );
+			if ( $order ) {
+				$item = $order->get_item( $order_item->order_item_id );
+				if ( $item ) {
+					if ( ! empty( $cashier_name ) ) {
+						$item->update_meta_data( '_dc25_redeemed_by', $cashier_name );
+					}
+					$item->update_meta_data( '_dc25_redeemed_at', current_time( 'mysql' ) );
+					if ( $uploaded_file && isset( $uploaded_file['url'] ) ) {
+						$item->update_meta_data( '_dc25_receipt_file', $uploaded_file['url'] );
+						$item->update_meta_data( '_dc25_receipt_path', $uploaded_file['file'] );
+					}
+					if ( $selected_cpt_id > 0 && ! empty( $selected_cpt_type ) ) {
+						$item->update_meta_data( '_dc25_gv_selected_cpt_id', $selected_cpt_id );
+						$item->update_meta_data( '_dc25_gv_selected_cpt_type', $selected_cpt_type );
+					}
+					$item->save();
+					$order->save();
+				}
+			}
 		}
 
 		// Invalider le coupon (marquer comme utilisé)
@@ -472,6 +662,32 @@ class DC25_Verify_Endpoint {
 										placeholder="<?php esc_attr_e( 'Votre nom', 'dc25-vouchers' ); ?>"
 									/>
 								</div>
+
+								<?php
+								// Afficher le champ de sélection CPT seulement si des CPT sont configurés
+								$allowed_post_types = [];
+								if ( class_exists( 'DC25_Settings' ) ) {
+									$settings = DC25_Settings::get_instance();
+									$allowed_post_types = $settings->get_allowed_cpt_for_verification();
+								}
+								if ( ! empty( $allowed_post_types ) ) :
+								?>
+								<div class="dc25-form-group">
+									<label for="dc25_selected_cpt">
+										<?php esc_html_e( 'Producteur/Vigneron', 'dc25-vouchers' ); ?>
+									</label>
+									<select 
+										id="dc25_selected_cpt" 
+										name="dc25_selected_cpt" 
+										class="dc25-form-input dc25-cpt-select"
+									>
+										<option value=""><?php esc_html_e( 'Sélectionner un producteur/vigneron...', 'dc25-vouchers' ); ?></option>
+									</select>
+									<small class="dc25-form-help">
+										<?php esc_html_e( 'Recherchez et sélectionnez le producteur ou vigneron concerné (optionnel)', 'dc25-vouchers' ); ?>
+									</small>
+								</div>
+								<?php endif; ?>
 
 								<div class="dc25-form-group">
 									<label for="dc25_receipt_file">

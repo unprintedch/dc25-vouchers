@@ -150,6 +150,25 @@ class DC25_Single_Product_Fields {
 						}
 					}, 500);
 				});
+
+				// Compteur de caractères en temps réel pour le message (120 max)
+				document.addEventListener('DOMContentLoaded', function() {
+					var textarea = document.getElementById('dc25_gv_message');
+					var counter = document.getElementById('dc25_gv_message_counter');
+					if (!textarea || !counter) {
+						return;
+					}
+					var max = 120;
+					var updateCount = function() {
+						var val = textarea.value || '';
+						if (val.length > max) {
+							textarea.value = val.substring(0, max);
+						}
+						counter.textContent = textarea.value.length + ' / ' + max + ' ' + '<?php echo esc_js( __( 'caractères', 'dc25-vouchers' ) ); ?>';
+					};
+					textarea.addEventListener('input', updateCount);
+					updateCount();
+				});
 			})();
 			</script>
 
@@ -191,20 +210,40 @@ class DC25_Single_Product_Fields {
 					name="dc25_gv_message" 
 					class="input-text" 
 					rows="4" 
+					maxlength="120"
 					placeholder="<?php esc_attr_e( 'Votre message pour le destinataire...', 'dc25-vouchers' ); ?>"
 				></textarea>
+				<small id="dc25_gv_message_counter"><?php esc_html_e( '0 / 120 caractères', 'dc25-vouchers' ); ?></small>
+			</p>
+
+			<p class="form-row form-row-wide">
+				<label for="dc25_gv_from_name">
+					<?php esc_html_e( 'De la part de', 'dc25-vouchers' ); ?>
+					<span class="required">*</span>
+				</label>
+				<input 
+					type="text" 
+					id="dc25_gv_from_name" 
+					name="dc25_gv_from_name" 
+					class="input-text" 
+					required
+					placeholder="<?php esc_attr_e( 'Nom de l\'offrant', 'dc25-vouchers' ); ?>"
+				/>
 			</p>
 
 			<p class="form-row form-row-wide">
 				<label for="dc25_gv_recipient_name">
 					<?php esc_html_e( 'Nom du destinataire', 'dc25-vouchers' ); ?>
+					<span class="required">*</span>
 				</label>
 				<input 
 					type="text" 
 					id="dc25_gv_recipient_name" 
 					name="dc25_gv_recipient_name" 
 					class="input-text" 
-					placeholder="<?php esc_attr_e( 'Nom du destinataire (optionnel)', 'dc25-vouchers' ); ?>"
+					required
+					minlength="2"
+					placeholder="<?php esc_attr_e( 'Nom du destinataire', 'dc25-vouchers' ); ?>"
 				/>
 			</p>
 
@@ -222,7 +261,7 @@ class DC25_Single_Product_Fields {
 					</label>
 				</p>
 			<?php endif; ?>
-		</div>
+		</div><!-- .dc25-gift-voucher-fields -->
 		<?php
 	}
 
@@ -271,6 +310,37 @@ class DC25_Single_Product_Fields {
 			return false;
 		}
 
+		// Validation du champ "De la part de"
+		if ( empty( $_POST['dc25_gv_from_name'] ) ) {
+			wc_add_notice( __( 'Veuillez saisir le nom de l\'offrant.', 'dc25-vouchers' ), 'error' );
+			return false;
+		}
+		$from_name = sanitize_text_field( wp_unslash( $_POST['dc25_gv_from_name'] ) );
+		if ( strlen( $from_name ) < 2 ) {
+			wc_add_notice( __( 'Le nom de l\'offrant doit contenir au moins 2 caractères.', 'dc25-vouchers' ), 'error' );
+			return false;
+		}
+
+		// Validation du champ "Destinataire" (obligatoire)
+		if ( empty( $_POST['dc25_gv_recipient_name'] ) ) {
+			wc_add_notice( __( 'Veuillez saisir le nom du destinataire.', 'dc25-vouchers' ), 'error' );
+			return false;
+		}
+		$recipient_name = sanitize_text_field( wp_unslash( $_POST['dc25_gv_recipient_name'] ) );
+		if ( strlen( $recipient_name ) < 2 ) {
+			wc_add_notice( __( 'Le nom du destinataire doit contenir au moins 2 caractères.', 'dc25-vouchers' ), 'error' );
+			return false;
+		}
+
+		// Limiter le message à 120 caractères
+		if ( isset( $_POST['dc25_gv_message'] ) ) {
+			$message = trim( wp_unslash( $_POST['dc25_gv_message'] ) );
+			if ( strlen( $message ) > 120 ) {
+				wc_add_notice( __( 'Le message ne peut pas dépasser 120 caractères.', 'dc25-vouchers' ), 'error' );
+				return false;
+			}
+		}
+
 		return $passed;
 	}
 
@@ -293,14 +363,23 @@ class DC25_Single_Product_Fields {
 			$cart_item_data['dc25_gv_amount'] = floatval( $_POST['dc25_gv_amount'] );
 		}
 
+		// De la part de
+		if ( isset( $_POST['dc25_gv_from_name'] ) ) {
+			$cart_item_data['dc25_gv_from_name'] = sanitize_text_field( wp_unslash( $_POST['dc25_gv_from_name'] ) );
+		}
+
 		// Message
 		if ( isset( $_POST['dc25_gv_message'] ) ) {
-			$cart_item_data['dc25_gv_message'] = sanitize_textarea_field( $_POST['dc25_gv_message'] );
+			$msg = sanitize_textarea_field( wp_unslash( $_POST['dc25_gv_message'] ) );
+			if ( strlen( $msg ) > 120 ) {
+				$msg = substr( $msg, 0, 120 );
+			}
+			$cart_item_data['dc25_gv_message'] = $msg;
 		}
 
 		// Destinataire
 		if ( isset( $_POST['dc25_gv_recipient_name'] ) ) {
-			$cart_item_data['dc25_gv_recipient_name'] = sanitize_text_field( $_POST['dc25_gv_recipient_name'] );
+			$cart_item_data['dc25_gv_recipient_name'] = sanitize_text_field( wp_unslash( $_POST['dc25_gv_recipient_name'] ) );
 		}
 
 		// Envoi physique
@@ -334,6 +413,14 @@ class DC25_Single_Product_Fields {
 			$item_data[] = [
 				'name'    => __( 'Message', 'dc25-vouchers' ),
 				'display' => wp_kses_post( $cart_item['dc25_gv_message'] ),
+			];
+		}
+
+		// De la part de
+		if ( ! empty( $cart_item['dc25_gv_from_name'] ) ) {
+			$item_data[] = [
+				'name'    => __( 'De la part de', 'dc25-vouchers' ),
+				'display' => esc_html( $cart_item['dc25_gv_from_name'] ),
 			];
 		}
 
@@ -372,6 +459,10 @@ class DC25_Single_Product_Fields {
 		// Sauvegarder toutes les données personnalisées dans les meta de l'item
 		if ( isset( $values['dc25_gv_amount'] ) ) {
 			$item->update_meta_data( '_dc25_gv_amount', floatval( $values['dc25_gv_amount'] ) );
+		}
+
+		if ( isset( $values['dc25_gv_from_name'] ) ) {
+			$item->update_meta_data( '_dc25_gv_from_name', sanitize_text_field( $values['dc25_gv_from_name'] ) );
 		}
 
 		if ( isset( $values['dc25_gv_message'] ) ) {

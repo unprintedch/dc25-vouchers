@@ -101,7 +101,15 @@ class DC25_Settings {
 	 * @return string
 	 */
 	public function get_logo_url(): string {
-		return $this->get_option( 'pdf_logo_url', '' );
+		$url = $this->get_option( 'pdf_logo_url', '' );
+		if ( empty( $url ) ) {
+			return '';
+		}
+		// Convertir en URL absolue si nécessaire pour DomPDF
+		if ( ! preg_match( '/^https?:\/\//', $url ) ) {
+			$url = site_url( $url );
+		}
+		return $url;
 	}
 
 	/**
@@ -148,22 +156,138 @@ class DC25_Settings {
 	/**
 	 * Obtenir le sujet de l'email destinataire
 	 *
+	 * @param string|null $language Code de langue (ex: 'fr', 'de'). Si null, utilise la langue courante.
 	 * @return string
 	 */
-	public function get_recipient_email_subject(): string {
-		return $this->get_option( 'recipient_email_subject', __( 'Vous avez reçu un bon cadeau !', 'dc25-vouchers' ) );
+	public function get_recipient_email_subject( ?string $language = null ): string {
+		$default = __( 'Vous avez reçu un bon cadeau !', 'dc25-vouchers' );
+		
+		// Obtenir la langue par défaut
+		$default_language = 'fr';
+		if ( function_exists( 'wpml_get_default_language' ) ) {
+			$default_language = wpml_get_default_language();
+		} elseif ( function_exists( 'icl_get_default_language' ) ) {
+			$default_language = icl_get_default_language();
+		}
+		
+		// Utiliser la langue fournie ou détecter la langue actuelle
+		if ( $language === null ) {
+			$current_language = 'fr';
+			if ( function_exists( 'wpml_get_current_language' ) ) {
+				$current_language = wpml_get_current_language();
+			} elseif ( function_exists( 'icl_get_current_language' ) ) {
+				$current_language = icl_get_current_language();
+			} elseif ( defined( 'ICL_LANGUAGE_CODE' ) ) {
+				$current_language = ICL_LANGUAGE_CODE;
+			}
+		} else {
+			$current_language = $language;
+		}
+		
+		// Construire la clé d'option selon la langue
+		$option_key = 'recipient_email_subject';
+		if ( $current_language !== $default_language ) {
+			$option_key .= '_' . $current_language;
+		}
+		
+		// Récupérer la valeur pour la langue actuelle
+		$subject = $this->get_option( $option_key, '' );
+		
+		// Si vide, utiliser la langue par défaut
+		if ( empty( $subject ) && $current_language !== $default_language ) {
+			$subject = $this->get_option( 'recipient_email_subject', $default );
+		}
+		
+		// Si toujours vide, utiliser la valeur par défaut
+		if ( empty( $subject ) ) {
+			$subject = $default;
+		}
+		
+		return $subject;
 	}
 
 	/**
 	 * Obtenir le contenu de l'email destinataire
 	 *
+	 * @param string|null $language Code de langue (ex: 'fr', 'de'). Si null, utilise la langue courante.
 	 * @return string
 	 */
-	public function get_recipient_email_content(): string {
-		return $this->get_option(
-			'recipient_email_content',
-			__( 'Bonjour {name},<br><br>Vous avez reçu un bon cadeau d\'un montant de {amount}.<br><br>Code: {coupon_code}<br><br>Message: {message}<br><br>Le PDF de votre bon cadeau est joint à cet email.<br><br>{download_link}<br><br>Cordialement,<br>{site_name}', 'dc25-vouchers' )
-		);
+	public function get_recipient_email_content( ?string $language = null ): string {
+		$default = __( 'Bonjour {name},<br><br>Vous avez reçu un bon cadeau d\'un montant de {amount}.<br><br>Code: {coupon_code}<br><br>Message: {message}<br><br>Le PDF de votre bon cadeau est joint à cet email.<br><br>{download_link}<br><br>Cordialement,<br>{site_name}', 'dc25-vouchers' );
+		
+		// Obtenir la langue par défaut
+		$default_language = 'fr';
+		if ( function_exists( 'wpml_get_default_language' ) ) {
+			$default_language = wpml_get_default_language();
+		} elseif ( function_exists( 'icl_get_default_language' ) ) {
+			$default_language = icl_get_default_language();
+		}
+		
+		// Utiliser la langue fournie ou détecter la langue actuelle
+		if ( $language === null ) {
+			$current_language = 'fr';
+			if ( function_exists( 'wpml_get_current_language' ) ) {
+				$current_language = wpml_get_current_language();
+			} elseif ( function_exists( 'icl_get_current_language' ) ) {
+				$current_language = icl_get_current_language();
+			} elseif ( defined( 'ICL_LANGUAGE_CODE' ) ) {
+				$current_language = ICL_LANGUAGE_CODE;
+			}
+		} else {
+			$current_language = $language;
+		}
+		
+		// Construire la clé d'option selon la langue
+		$option_key = 'recipient_email_content';
+		if ( $current_language !== $default_language ) {
+			$option_key .= '_' . $current_language;
+		}
+		
+		// Récupérer la valeur pour la langue actuelle
+		$content = $this->get_option( $option_key, '' );
+		
+		// Si vide, utiliser la langue par défaut
+		if ( empty( $content ) && $current_language !== $default_language ) {
+			$content = $this->get_option( 'recipient_email_content', $default );
+		}
+		
+		// Si toujours vide, utiliser la valeur par défaut
+		if ( empty( $content ) ) {
+			$content = $default;
+		}
+		
+		return $content;
+	}
+
+	/**
+	 * Obtenir les CPT autorisés pour la vérification
+	 *
+	 * @return array Liste des slugs de CPT autorisés
+	 */
+	public function get_allowed_cpt_for_verification(): array {
+		$default = [ 'producer', 'group' ];
+		$allowed = [];
+		
+		// Récupérer tous les CPT disponibles
+		$post_types = get_post_types( [ 'public' => true, 'show_ui' => true ], 'objects' );
+		
+		foreach ( $post_types as $post_type ) {
+			// Exclure les types par défaut
+			if ( in_array( $post_type->name, [ 'attachment', 'revision', 'nav_menu_item', 'page', 'post' ], true ) ) {
+				continue;
+			}
+			
+			// Vérifier si ce CPT est activé via la checkbox
+			$field_id = 'dc25_gv_cpt_' . $post_type->name;
+			$is_enabled = $this->get_option( $field_id, in_array( $post_type->name, $default, true ) ? 'yes' : 'no' );
+			
+			if ( 'yes' === $is_enabled ) {
+				$allowed[] = $post_type->name;
+			}
+		}
+		
+		// Si aucun CPT n'est sélectionné, retourner les valeurs par défaut
+		return ! empty( $allowed ) ? $allowed : $default;
 	}
 
 	/**
@@ -188,7 +312,15 @@ class DC25_Settings {
 	 * Obtenir le fond du PDF
 	 */
 	public function get_pdf_background_url(): string {
-		return $this->get_option( 'pdf_background_url', '' );
+		$url = $this->get_option( 'pdf_background_url', '' );
+		if ( empty( $url ) ) {
+			return '';
+		}
+		// Convertir en URL absolue si nécessaire pour DomPDF
+		if ( ! preg_match( '/^https?:\/\//', $url ) ) {
+			$url = site_url( $url );
+		}
+		return $url;
 	}
 
 	/**
@@ -593,7 +725,69 @@ if ( class_exists( 'WC_Settings_Page' ) ) {
 				'type' => 'sectionend',
 				'id'   => 'dc25_gv_email',
 			],
+			[
+				'title' => __( 'Réglages vérification', 'dc25-vouchers' ),
+				'type'  => 'title',
+				'id'    => 'dc25_gv_verification',
+				'desc'  => __( 'Configurez les types de contenus disponibles lors de la vérification des bons cadeaux.', 'dc25-vouchers' ),
+			],
+			$this->get_cpt_verification_fields(),
+			[
+				'type' => 'sectionend',
+				'id'   => 'dc25_gv_verification',
+			],
 		] );
+	}
+
+	/**
+	 * Obtenir les champs de configuration des CPT pour la vérification
+	 *
+	 * @return array Array de champs pour WooCommerce Settings API
+	 */
+	private function get_cpt_verification_fields(): array {
+		$post_types = get_post_types( [ 'public' => true, 'show_ui' => true ], 'objects' );
+		$fields = [];
+		$default_enabled = [ 'producer', 'group' ];
+		
+		foreach ( $post_types as $post_type ) {
+			// Exclure les types par défaut de WordPress sauf si pertinents
+			if ( in_array( $post_type->name, [ 'attachment', 'revision', 'nav_menu_item', 'page', 'post' ], true ) ) {
+				continue;
+			}
+			
+			$field_id = 'dc25_gv_cpt_' . $post_type->name;
+			$is_default = in_array( $post_type->name, $default_enabled, true );
+			
+			$fields[] = [
+				'title'    => $post_type->label,
+				'desc'     => sprintf( __( 'Activer %s dans la liste de vérification', 'dc25-vouchers' ), $post_type->label ),
+				'id'       => $field_id,
+				'type'     => 'checkbox',
+				'default'  => $is_default ? 'yes' : 'no',
+			];
+		}
+		
+		return $fields;
+	}
+
+	/**
+	 * Obtenir la liste des types de contenus disponibles sur le site
+	 *
+	 * @return array Array associatif slug => label
+	 */
+	private function get_available_post_types(): array {
+		$post_types = get_post_types( [ 'public' => true, 'show_ui' => true ], 'objects' );
+		$options = [];
+		
+		foreach ( $post_types as $post_type ) {
+			// Exclure les types par défaut de WordPress sauf si pertinents
+			if ( in_array( $post_type->name, [ 'attachment', 'revision', 'nav_menu_item', 'page', 'post' ], true ) ) {
+				continue;
+			}
+			$options[ $post_type->name ] = $post_type->label . ' (' . $post_type->name . ')';
+		}
+		
+		return $options;
 	}
 	} // Fin de la classe DC25_Settings_Page
 } // Fin de la condition class_exists('WC_Settings_Page')

@@ -10,6 +10,7 @@
 		const $button = $form.find('button[type="submit"]');
 		const $cashierName = $('#dc25_cashier_name');
 		const $receiptFile = $('#dc25_receipt_file');
+		const $cptSelect = $('#dc25_selected_cpt');
 
 		if (!$form.length) {
 			return; // Formulaire non présent sur la page
@@ -19,6 +20,54 @@
 		if (typeof dc25Redeem === 'undefined') {
 			console.error('DC25 Redeem: Configuration AJAX non disponible');
 			return;
+		}
+
+		// Initialiser Select2 pour la recherche de CPT
+		if ($cptSelect.length && typeof $.fn.select2 !== 'undefined' && dc25Redeem.allowed_post_types && dc25Redeem.allowed_post_types.length > 0) {
+			$cptSelect.select2({
+				ajax: {
+					url: dc25Redeem.ajax_url,
+					type: 'POST',
+					dataType: 'json',
+					delay: 250,
+					data: function(params) {
+						return {
+							action: 'dc25_search_cpt',
+							search: params.term || '',
+							page: params.page || 1,
+							post_type: dc25Redeem.allowed_post_types
+						};
+					},
+					processResults: function(data) {
+						if (data && data.success && data.data && data.data.results) {
+							return {
+								results: data.data.results,
+								pagination: {
+									more: data.data.pagination && data.data.pagination.more === true
+								}
+							};
+						}
+						return {
+							results: [],
+							pagination: { more: false }
+						};
+					},
+					cache: true
+				},
+				placeholder: dc25Redeem.i18n.select_cpt_placeholder || 'Rechercher un producteur/vigneron...',
+				minimumInputLength: 2,
+				language: {
+					inputTooShort: function() {
+						return 'Tapez au moins 2 caractères...';
+					},
+					noResults: function() {
+						return dc25Redeem.i18n.no_results || 'Aucun résultat trouvé';
+					},
+					searching: function() {
+						return dc25Redeem.i18n.searching || 'Recherche en cours...';
+					}
+				}
+			});
 		}
 
 		$form.on('submit', function(e) {
@@ -37,6 +86,11 @@
 			formData.append('nonce', dc25Redeem.nonce);
 			formData.append('dc25_coupon_code', dc25Redeem.coupon_code);
 			formData.append('dc25_cashier_name', $cashierName.val().trim());
+
+			// Ajouter le CPT sélectionné si présent
+			if ($cptSelect.length && $cptSelect.val()) {
+				formData.append('dc25_selected_cpt', $cptSelect.val());
+			}
 
 			// Ajouter le fichier si présent
 			if ($receiptFile[0].files.length > 0) {

@@ -164,6 +164,9 @@ class DC25_Gift_Product_Type {
 		// 8. Script pour gérer l'affichage des onglets sans flash
 		add_action( 'admin_footer', [ $this, 'admin_script' ] );
 
+		// 8bis. Rendre visible le champ "Sold individually" pour gift_voucher
+		add_action( 'woocommerce_product_options_inventory_product_data', [ $this, 'show_sold_individually_field' ], 99 );
+
 		// 9. Permettre l'ajout au panier même sans prix (pour prix libre)
 		add_filter( 'woocommerce_is_purchasable', [ $this, 'make_purchasable' ], 10, 2 );
 		
@@ -172,6 +175,9 @@ class DC25_Gift_Product_Type {
 
 		// 11. Afficher le prix dynamique sur la page produit
 		// add_filter( 'woocommerce_get_price_html', [ $this, 'display_dynamic_price' ], 10, 2 );
+		
+		// 11bis. Afficher toujours la fourchette min/max pour les bons cadeaux (front + blocs)
+		add_filter( 'woocommerce_get_price_html', [ $this, 'display_price_range_everywhere' ], 9, 2 );
 		
 		// 12. Forcer l'affichage du formulaire d'ajout au panier
 		add_action( 'woocommerce_single_product_summary', [ $this, 'force_add_to_cart_form' ], 29 );
@@ -471,6 +477,13 @@ class DC25_Gift_Product_Type {
 			$product->update_meta_data( '_dc25_gv_tax_rate', floatval( $_POST['_dc25_gv_tax_rate'] ) );
 		}
 
+		// Sauvegarder "Sold individually" si présent
+		if ( isset( $_POST['_sold_individually'] ) ) {
+			$product->update_meta_data( '_sold_individually', 'yes' );
+		} else {
+			$product->update_meta_data( '_sold_individually', 'no' );
+		}
+
 		$product->save();
 	}
 
@@ -548,6 +561,46 @@ class DC25_Gift_Product_Type {
 			number_format_i18n( $max_amount, 2 )
 		);
 	}
+
+	/**
+	 * Afficher partout la plage de prix min/max pour les gift_voucher
+	 *
+	 * @param string     $price_html Prix HTML actuel.
+	 * @param WC_Product $product    Produit courant.
+	 * @return string
+	 */
+	public function display_price_range_everywhere( string $price_html, $product ): string {
+		// Ne pas modifier l'admin (sauf AJAX) pour éviter de casser l'édition
+		if ( is_admin() && ! wp_doing_ajax() ) {
+			return $price_html;
+		}
+
+		if ( ! $product || 'gift_voucher' !== $product->get_type() ) {
+			return $price_html;
+		}
+
+		$min = (float) $product->get_min_amount();
+		$max = (float) $product->get_max_amount();
+
+		// Si aucune valeur valable, garder le HTML par défaut
+		if ( $min <= 0 && $max <= 0 ) {
+			return $price_html;
+		}
+
+		// Normaliser si un seul montant est défini
+		if ( $min <= 0 ) {
+			$min = $max;
+		}
+		if ( $max <= 0 ) {
+			$max = $min;
+		}
+
+		$formatted = ( $min === $max )
+			? wc_price( $min )
+			: sprintf( '%s – %s', wc_price( $min ), wc_price( $max ) );
+
+		return sprintf( '<span class="price price-range">%s</span>', $formatted );
+	}
 	
 	/**
 	 * Forcer l'affichage du formulaire d'ajout au panier pour les bons cadeaux
@@ -570,19 +623,147 @@ class DC25_Gift_Product_Type {
 			$product->set_price( $product->get_min_amount() );
 			$product->set_regular_price( $product->get_min_amount() );
 			
-			// Afficher le formulaire
+			// Afficher le formulaire avec une structure HTML correcte
 			?>
 			<form class="cart" action="<?php echo esc_url( apply_filters( 'woocommerce_add_to_cart_form_action', $product->get_permalink() ) ); ?>" method="post" enctype='multipart/form-data'>
 				<?php do_action( 'woocommerce_before_add_to_cart_button' ); ?>
 				
-				<button type="submit" name="add-to-cart" value="<?php echo esc_attr( $product->get_id() ); ?>" class="single_add_to_cart_button button alt<?php echo esc_attr( wc_wp_theme_get_element_class_name( 'button' ) ? ' ' . wc_wp_theme_get_element_class_name( 'button' ) : '' ); ?>">
-					<?php echo esc_html( $product->single_add_to_cart_text() ); ?>
-				</button>
+				<div class="single_variation_wrap">
+					<div class="woocommerce-variation single_variation"></div>
+					<div class="woocommerce-variation-add-to-cart variations_button">
+						<button type="submit" name="add-to-cart" value="<?php echo esc_attr( $product->get_id() ); ?>" class="single_add_to_cart_button button alt<?php echo esc_attr( wc_wp_theme_get_element_class_name( 'button' ) ? ' ' . wc_wp_theme_get_element_class_name( 'button' ) : '' ); ?>">
+							<?php echo esc_html( $product->single_add_to_cart_text() ); ?>
+						</button>
+					</div>
+				</div>
 				
 				<?php do_action( 'woocommerce_after_add_to_cart_button' ); ?>
 			</form>
 			<?php
 		}
+	}
+
+	/**
+	 * Rendre visible le champ "Sold individually" pour gift_voucher
+	 */
+	public function show_sold_individually_field(): void {
+		global $post;
+
+		$product = null;
+		$current_type = 'simple';
+		if ( isset( $post->ID ) && $post->ID > 0 ) {
+			$product = wc_get_product( $post->ID );
+			if ( $product ) {
+				$current_type = $product->get_type();
+			}
+		}
+
+		// Si c'est un gift_voucher, créer le champ manuellement s'il n'existe pas
+		if ( 'gift_voucher' === $current_type && $product ) {
+			$sold_individually = $product->get_meta( '_sold_individually' );
+			?>
+			<div class="options_group show_if_gift_voucher" style="display: block;">
+				<?php
+				woocommerce_wp_checkbox(
+					[
+						'id'            => '_sold_individually',
+						'wrapper_class' => 'show_if_gift_voucher',
+						'label'         => __( 'Vendre individuellement', 'woocommerce' ),
+						'description'   => __( 'Limiter les achats à 1 article par commande', 'woocommerce' ),
+						'value'         => $sold_individually ? 'yes' : 'no',
+					]
+				);
+				?>
+			</div>
+			<?php
+		}
+
+		// Toujours ajouter le script pour gérer le changement de type de produit
+		?>
+		<script type="text/javascript">
+		(function($) {
+			function showSoldIndividuallyField() {
+				var productType = $('#product-type').val() || '<?php echo esc_js( $current_type ); ?>';
+				var field = $('#inventory_product_data ._sold_individually_field');
+				
+				console.log('DC25: Checking sold individually field, product type:', productType, 'field found:', field.length);
+				
+				if (field.length) {
+					if (productType === 'gift_voucher') {
+						// Ajouter la classe show_if_gift_voucher et retirer les classes qui masquent
+						field
+							.addClass('show_if_gift_voucher')
+							.removeClass('hide_if_grouped hide_if_external hide_if_variable hide_if_variable-subscription')
+							.css({
+								'display': 'block',
+								'visibility': 'visible',
+								'opacity': '1'
+							})
+							.show();
+						
+						// Forcer aussi le parent form-field
+						var parentField = field.closest('.form-field');
+						if (parentField.length) {
+							parentField
+								.addClass('show_if_gift_voucher')
+								.removeClass('hide_if_grouped hide_if_external hide_if_variable hide_if_variable-subscription')
+								.css({
+									'display': 'block',
+									'visibility': 'visible'
+								})
+								.show();
+						}
+						
+						console.log('DC25: Field shown for gift_voucher');
+					}
+				} else {
+					console.log('DC25: Sold individually field not found in DOM');
+				}
+			}
+
+			// Exécuter après le chargement du DOM
+			$(document).ready(function() {
+				// Attendre que WooCommerce ait initialisé
+				setTimeout(function() {
+					showSoldIndividuallyField();
+					
+					// Écouter les changements de type de produit
+					$('#product-type').on('change', function() {
+						setTimeout(showSoldIndividuallyField, 100);
+					});
+					
+					// Écouter les événements WooCommerce
+					$(document.body).on('woocommerce-product-type-change', function(e, productType) {
+						console.log('DC25: Product type changed to:', productType);
+						if (productType === 'gift_voucher') {
+							setTimeout(showSoldIndividuallyField, 100);
+						}
+					});
+					
+					// Observer les mutations du DOM pour détecter quand WooCommerce modifie les champs
+					if (typeof MutationObserver !== 'undefined') {
+						var observer = new MutationObserver(function(mutations) {
+							var productType = $('#product-type').val();
+							if (productType === 'gift_voucher') {
+								showSoldIndividuallyField();
+							}
+						});
+						
+						var inventoryPanel = document.getElementById('inventory_product_data');
+						if (inventoryPanel) {
+							observer.observe(inventoryPanel, {
+								childList: true,
+								subtree: true,
+								attributes: true,
+								attributeFilter: ['class', 'style']
+							});
+						}
+					}
+				}, 300);
+			});
+		})(jQuery);
+		</script>
+		<?php
 	}
 
 	/**
@@ -632,6 +813,20 @@ class DC25_Gift_Product_Type {
 			#general_product_data input[id*="_dc25_gv_max_amount"],
 			#general_product_data input[id*="_dc25_gv_default_amount"] {
 				display: none !important;
+			}
+			/* Rendre visible le champ "Sold individually" pour gift_voucher */
+			body.post-type-product #inventory_product_data ._sold_individually_field,
+			body.post-type-product #inventory_product_data ._sold_individually_field.show_if_gift_voucher,
+			body.post-type-product #inventory_product_data ._sold_individually_field.hide_if_grouped,
+			body.post-type-product #inventory_product_data ._sold_individually_field.hide_if_external,
+			body.post-type-product #inventory_product_data ._sold_individually_field.hide_if_variable {
+				display: block !important;
+				visibility: visible !important;
+				opacity: 1 !important;
+			}
+			/* S'assurer que le parent form-field est aussi visible */
+			body.post-type-product #inventory_product_data ._sold_individually_field.form-field {
+				display: block !important;
 			}
 			</style>
 			<?php
@@ -710,6 +905,22 @@ class DC25_Gift_Product_Type {
 					$('#general_product_data ._sale_price_field').hide();
 					$('#general_product_data ._tax_status_field').hide();
 					$('#general_product_data ._tax_class_field').hide();
+					
+					// Rendre visible le champ "Sold individually" pour gift_voucher
+					var soldIndividuallyField = $('#inventory_product_data ._sold_individually_field');
+					if (soldIndividuallyField.length) {
+						soldIndividuallyField
+							.addClass('show_if_gift_voucher')
+							.removeClass('hide_if_grouped hide_if_external hide_if_variable hide_if_variable-subscription')
+							.css({
+								'display': 'block !important',
+								'visibility': 'visible !important'
+							})
+							.show();
+						
+						// Forcer aussi le parent si nécessaire
+						soldIndividuallyField.closest('.form-field').show();
+					}
 					
 					// Déclencher l'événement WooCommerce pour mettre à jour l'affichage
 					$(document.body).trigger('woocommerce-product-type-change', ['gift_voucher']);
